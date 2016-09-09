@@ -96,77 +96,77 @@ describe('entity', () => {
     assert(find.calledOnce);
   });
 
-  // it('can find and cache results of finding multiple items', async () => {
-  //   const entity = new Entity(connector, collectionName);
-  //   entity.collection.insertOne({ _id: '1' });
+  it('can find and cache results of finding multiple items', async () => {
+    const entity = new Entity(connector, collectionName);
+    entity.collection.insertOne({ _id: '1' });
 
-  //   const find = sinon.spy(entity.collection, 'find');
+    const find = sinon.spy(entity.collection, 'find');
 
-  //   // first we test if DB is called every time
-  //   let result = await entity.findManyCached();
-  //   result = await entity.findManyCached();
-  //   assert.deepEqual(result, [{ _id: '1' }]);
-  //   assert(find.calledOnce);
-  // });
+    // first we test if DB is called every time
+    let result = await entity.findManyCached();
+    result = await entity.findManyCached();
+    assert.deepEqual(result, [{ _id: '1' }]);
+    assert(find.calledOnce);
+  });
 
-  // it('clears the cache when a new document is inserted', async function () {
-  //   const entity = new Entity(connector, collectionName);
-  //   const find = sinon.spy(entity.collection, 'find');
+  it('clears the cache when a new document is inserted', async function () {
+    const entity = new Entity(connector, collectionName);
+    const find = sinon.spy(entity.collection, 'find');
 
-  //   entity.insert({ _id: '2' });
-  //   let result = await entity.findManyCached();
-  //   // insert document
-  //   entity.insert({ _id: '2' });
-  //   result = await entity.findManyCached();
+    entity.insert({ _id: '2' });
+    let result = await entity.findManyCached();
+    // insert document
+    entity.insert({ _id: '2' });
+    result = await entity.findManyCached();
 
-  //   assert(find.calledTwice);
-  //   assert.deepEqual(result, [{ _id: '1' }, { _id: '2' }]);
-  // });
+    assert(find.calledTwice);
+    assert.deepEqual(result, [{ _id: '1' }, { _id: '2' }]);
+  });
 
-  // it('clears the related cache when a document is updated', async function () {
-  //   const entity = new Entity(connector, collectionName);
-  //   const findSpy = sinon.spy(entity.collection, 'findOne');
-  //   const cacheSpy = sinon.spy(entity, 'clearUpdateCaches');
+  it('clears the related cache when a document is updated', async function () {
+    const entity = new Entity(connector, collectionName);
+    const findSpy = sinon.spy(entity.collection, 'findOne');
+    const cacheSpy = sinon.spy(entity, 'clearUpdateCaches');
 
-  //   entity.insert({ _id: '1', file: 'foo' });
-  //   entity.insert({ _id: '2', file: 'bar' });
+    entity.insert({ _id: '1', file: 'foo' });
+    entity.insert({ _id: '2', file: 'bar' });
 
-  //   let foo = await entity.findOneCachedById('1');
-  //   let bar = await entity.findOneCachedById('2');
+    let foo = await entity.findOneCachedById('1');
+    let bar = await entity.findOneCachedById('2');
 
-  //   const selector = { _id: '1' };
-  //   entity.update(selector, { $set: { file: 'boo' } });
-  //   assert(cacheSpy.calledWith(selector))
+    const selector = { _id: '1' };
+    entity.update(selector, { $set: { file: 'boo' } });
+    assert(cacheSpy.calledWith(selector))
 
-  //   // check update 
-  //   findSpy.reset();
+    // check update 
+    findSpy.reset();
 
-  //   foo = await entity.findOneCachedById('1');
-  //   assert.deepEqual(foo, { _id: '1', file: 'boo' });
-  //   assert(findSpy.calledOnce);
+    foo = await entity.findOneCachedById('1');
+    assert.deepEqual(foo, { _id: '1', file: 'boo' });
+    assert(findSpy.calledOnce);
 
-  //   // check if the other has been called coorectly
-  //   findSpy.reset();
-  //   bar = await entity.findOneCachedById('2');
-  //   assert(findSpy.notCalled);
-  // });
+    // check if the other has been called coorectly
+    findSpy.reset();
+    bar = await entity.findOneCachedById('2');
+    assert(findSpy.notCalled);
+  });
 
-  // it('clears all caches when a document is updated and selector is unknown', async function () {
-  //   const entity = new Entity(connector, collectionName);
-  //   entity.insert({ _id: '1', file: 'foo' });
-  //   entity.insert({ _id: '2', file: 'bar' });
+  it('clears all caches when a document is updated and selector is unknown', async function () {
+    const entity = new Entity(connector, collectionName);
+    entity.insert({ _id: '1', file: 'foo' });
+    entity.insert({ _id: '2', file: 'bar' });
 
-  //   let foo = await entity.findOneCachedById('1');
-  //   let bar = await entity.findOneCachedById('2');
+    let foo = await entity.findOneCachedById('1');
+    let bar = await entity.findOneCachedById('2');
 
-  //   entity.update({ file: 'foo'}, { $set: { file: 'boo' } });
+    entity.update({ file: 'foo'}, { $set: { file: 'boo' } });
 
-  //   const findSpy = sinon.spy(entity.collection, 'findOne');
-  //   foo = await entity.findOneCachedById('1');
-  //   bar = await entity.findOneCachedById('2');
+    const findSpy = sinon.spy(entity.collection, 'findOne');
+    foo = await entity.findOneCachedById('1');
+    bar = await entity.findOneCachedById('2');
 
-  //   assert(findSpy.calledTwice);
-  // });
+    assert(findSpy.calledTwice);
+  });
 
 
 })
