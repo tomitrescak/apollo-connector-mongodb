@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "mocha --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail",
+    "test": "mocha --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail ",
     "coverage": "NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
     "coveralls": "NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
@@ -23,9 +23,11 @@
     "assert": "^1.4.1",
     "dataloader": "^1.2.0",
     "import-to-commonjs": ">=0.0.3",
-    "meteor-random": "0.0.3"
+    "meteor-random": "0.0.3",
+    "mongodb": "^2.2.9"
   },
   "devDependencies": {
+    "coveralls": "^2.11.12",
     "mocha": "^3.0.2",
     "mocha-lcov-reporter": "^1.2.0",
     "nyc": "^8.1.0",

@@ -10,17 +10,17 @@ module.exports = function (w) {
       'src/tests/*.ts'
     ],
     compilers: {
-      "**/*.ts*": w.compilers.typeScript({module: "es6", target: "es6"})
+      "**/*.ts*": w.compilers.typeScript({module: "commonjs", target: "es6"})
     },
     env: {
       type: "node"
     },
     testFramework: "mocha",
-    preprocessors: {
-      "**/*.js*": file => { 
-        return transform(file.content); 
-      }
-    },
+    // preprocessors: {
+    //   "**/*.js*": file => { 
+    //     return transform(file.content); 
+    //   }
+    // },
     workers: {
        initial: 1,
        regular: 1

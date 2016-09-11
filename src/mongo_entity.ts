@@ -1,6 +1,6 @@
 import MongoConnector from './mongo_connector';
-import Random from 'meteor-random';
-const DataLoader = require('dataloader');
+import * as Random from 'meteor-random';
+import DataLoader = require('dataloader');
 
 import { Collection, FindOneOptions, Cursor, ReplaceOneOptions } from 'mongodb';
 
@@ -11,8 +11,8 @@ export default class MongoEntity<T> {
 
   private _collectionName: string;
   private _collection: Collection<T>;
-  private _singleLoader: IDataLoader<string, T>;
-  private _multiLoader: IDataLoader<string, T[]>;
+  private _singleLoader: DataLoader<string, T>;
+  private _multiLoader: DataLoader<string, T[]>;
 
   get collection(): Collection<T> {
     if (!this._collection) {

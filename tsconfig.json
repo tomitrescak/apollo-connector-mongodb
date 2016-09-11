@@ -10,11 +10,10 @@
     "preserveConstEnums": true,
     "outDir": "dist",
     "suppressImplicitAnyIndexErrors": true,
-    "jsx": "react",
     "experimentalDecorators": true,
     "sourceMap": false,
-    "allowSyntheticDefaultImports": true,
-    "moduleResolution": "classic"
+    "allowSyntheticDefaultImports": false,
+    "moduleResolution": "node"
   },
   "filesGlob": [
     "src/**/*.ts"

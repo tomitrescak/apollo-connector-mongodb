@@ -6,7 +6,7 @@
 */
 
 
-//declare module "dataloader/DataLoader"  {
+declare module "dataloader/DataLoader"  {
 
     /**
      *  Copyright (c) 2015, Facebook, Inc.
@@ -31,7 +31,7 @@
     }
 
     // If a custom cache is provided, it must be of this type (a subset of ES6 Map).
-     interface CacheMap<K, V> {
+    export interface CacheMap<K, V> {
         get(key: K): V | void;
         set(key: K, value: V): any;
         delete(key: K): any;
@@ -48,7 +48,7 @@
      * different access permissions and consider creating a new instance per
      * web request.
      */
-     declare class IDataLoader<K, V> {
+     export class DataLoader<K, V> {
         constructor(
             batchLoadFn: BatchLoadFn<K, V>,
             options?: Options<K, V>
@@ -78,26 +78,26 @@
          * Clears the value at `key` from the cache, if it exists. Returns itself for
          * method chaining.
          */
-        clear(key: K): IDataLoader<K, V>;
+        clear(key: K): DataLoader<K, V>;
 
         /**
          * Clears the entire cache. To be used when some event results in unknown
          * invalidations across this particular `DataLoader`. Returns itself for
          * method chaining.
          */
-        clearAll(): IDataLoader<K, V>;
+        clearAll(): DataLoader<K, V>;
 
         /**
          * Adds the provided key and value to the cache. If the key already exists, no
          * change is made. Returns itself for method chaining.
          */
-        prime(key: K, value: V): IDataLoader<K, V>;
+        prime(key: K, value: V): DataLoader<K, V>;
     }
-//}
+}
 
-// declare module "dataloader" {
-//     import { DataLoader } from 'dataloader/DataLoader';
-//     export = DataLoader;
-// }
+declare module "dataloader" {
+    import { DataLoader } from 'dataloader/DataLoader';
+    export = DataLoader;
+}
 
 

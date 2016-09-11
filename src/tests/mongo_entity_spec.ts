@@ -167,6 +167,4 @@ describe('entity', () => {
 
     assert(findSpy.calledTwice);
   });
-
-
 })
