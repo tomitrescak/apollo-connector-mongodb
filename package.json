@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "mocha --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail ",
+    "test": "mocha --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail",
     "coverage": "NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
     "coveralls": "NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
@@ -47,6 +47,8 @@
       "src/**/*.ts"
     ],
     "exclude": [
+      "src/index.ts",
+      "**/*.d.ts",
       "src/typings"
     ],
     "extension": [
