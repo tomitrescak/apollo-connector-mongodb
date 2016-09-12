@@ -2,7 +2,7 @@ import MongoConnector from './mongo_connector';
 import * as Random from 'meteor-random';
 import DataLoader = require('dataloader');
 
-import { Collection, FindOneOptions, Cursor, ReplaceOneOptions } from 'mongodb';
+import { Collection, FindOneOptions, Cursor, ReplaceOneOptions, InsertOneWriteOpResult, UpdateWriteOpResult } from 'mongodb';
 
 export default class MongoEntity<T> {
 
@@ -70,13 +70,13 @@ export default class MongoEntity<T> {
     return  this._multiLoader.load('ALL');
   }
 
-  insert(document: T) {
+  insert(document: T): Promise<InsertOneWriteOpResult> {
     this.clearInsertCaches(document);
 
     return this.collection.insertOne(document);
   }
 
-  update(selector: Object, update: Object, options?: ReplaceOneOptions) {
+  update(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
     this.clearUpdateCaches(selector);
 
     return this.collection.updateOne(selector, update, options);

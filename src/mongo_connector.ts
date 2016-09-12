@@ -1,7 +1,7 @@
-import { MongoClient, Db } from 'mongodb';
+import { MongoClient, Db, Collection } from 'mongodb';
 
 export default class MongoConnector {
-  private mongoUrl: string;
+  private mongoUrl: string; 
   private db: Db;
 
   constructor(url: string, started: Function) {
@@ -21,7 +21,7 @@ export default class MongoConnector {
     });
   }
 
-  collection(name: string) {
+  collection<T>(name: string): Collection<T> {
     return this.db.collection(name);
   }
 }

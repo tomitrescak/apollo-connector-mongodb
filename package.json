@@ -1,6 +1,6 @@
 {
   "name": "apollo-connector-mongodb",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Apollo connector for mongodb",
   "main": "./dist/index.js",
   "scripts": {
@@ -9,6 +9,7 @@
     "coverage": "NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
     "coveralls": "NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
+  "typings": "./dist/index.d.ts",
   "keywords": [
     "Apollo",
     "Connector",

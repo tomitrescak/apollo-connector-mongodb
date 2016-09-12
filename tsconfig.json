@@ -3,7 +3,7 @@
   "compilerOptions": {
     "target": "es6",
     "module": "commonjs",
-    "declaration": false,
+    "declaration": true,
     "noImplicitAny": true,
     "removeComments": true,
     "noLib": false,
