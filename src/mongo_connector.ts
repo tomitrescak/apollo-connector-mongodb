@@ -7,12 +7,18 @@ export default class MongoConnector {
   constructor(url: string, started: Function) {
     this.mongoUrl = url;
 
+    if (started) {
+      this.connect(started);
+    }
+  }
+
+  connect(started?: Function) {
     const that = this;
-    MongoClient.connect(url, function (err, db) {
+    MongoClient.connect(this.mongoUrl, function (err, db) {
       if (err) { 
         return console.dir(err); 
       }
-      console.log('Connected to MongoDB at ' + url);
+      console.log('Connected to MongoDB at ' + that.mongoUrl);
       that.db = db;
 
       if (started) {

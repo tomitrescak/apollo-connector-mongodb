@@ -24,6 +24,7 @@ describe('entity', () => {
     db['dispose'] = async function () {
       await db.dropDatabase();
     }; 
+    global.db = db;
 
     // delete other
     // const dbs = await db.admin().listDatabases();
@@ -64,7 +65,7 @@ describe('entity', () => {
     assert(find.calledWithExactly(selector, fields, skip, limit, timeout));
   });
 
-  it('can find a sinlge record', () => {
+  it('can find a single record', () => {
     const entity = new Entity(connector, collectionName);
     const find = sinon.spy(entity.collection, 'find');
 

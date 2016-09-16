@@ -33,6 +33,21 @@ module.exports = function (w) {
     // },
     delays: {
       run: 500
+    },
+    setup() {
+      // configure sinon
+      var sinon = require('sinon');
+      var sinonTest = require('sinon-test');
+
+      sinon.test = sinonTest.configureTest(sinon);
+      sinon.testCase = sinonTest.configureTestCase(sinon);
+    },
+    teardown: function (wallaby) {
+      if (db) {
+        console.log('tearing down db');
+        db.dropDatabase();
+        db.close();
+      }
     }
     // preprocessors: {
     //   "**/*.js*": file => require("babel-core").transform(file.content.replace('(\'assert\')', '(\'power-assert\')'), {

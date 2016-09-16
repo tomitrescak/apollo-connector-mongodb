@@ -7,3 +7,4 @@ declare module 'events' {
 }
 declare var process: any;
 declare var require: any;
+declare var global: any;

@@ -21,29 +21,28 @@ describe('connector', () => {
 
     MongoStub.MongoClient.connect = () => spy();
 
-    const connector = new MongoConnector(url, null);
+    const connector = new MongoConnector(url);
+    connector.connect();
     assert.equal(connector.mongoUrl, url);
     assert(spy.calledOnce);
   });
 
-  it('will not initialise db on error and logs error', () => {
+  it('will not initialise db on error and logs error', sinon.test(function() {
 
     //assert()
     const url = 'mongodb://url';
     const successSpy = sinon.spy();
 
     // spy on console.dir
-    try { sinon.spy(console, 'dir'); } catch (e) { }
+    const dirStub = this.stub(console, 'dir');
     MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
     
-    console.dir['reset']();
-    const connector = new MongoConnector(url, null);
+    const connector = new MongoConnector(url);
+    connector.connect();
     assert.equal(connector.db, undefined);
-    assert(console.dir['calledOnce']);
-    assert(console.dir['calledWith']('error'));
-
-    console.dir['restore']();
-  });
+    sinon.assert.calledOnce(dirStub);
+    sinon.assert.calledWith(dirStub, 'error');
+  }));
 
   it('will initialise and calls back', () => {
 
@@ -70,6 +69,7 @@ describe('connector', () => {
     MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
     
     const connector = new MongoConnector(url);
+    connector.connect();
     assert.equal(connector.db, db);
 
     // get a new collection
