@@ -55,14 +55,14 @@ export default class MongoEntity<T> {
     }
   }
 
-  filter(object: Object, selector: Object) {
+  filter(object: Object, selector: Object): T {
     let keys = Object.keys(selector);
     if (keys.length == 0) {
       throw new Error('You need to specify the selector!');
     }
 
     let include = selector[keys[0]];
-    let result = include ? {} : Object.assign({}, object);
+    let result: any = include ? {} : Object.assign({}, object);
     let selectorFunction = this.assignFilter(object, selector, result, include);
     keys.forEach(selectorFunction);
     return result;
@@ -76,7 +76,7 @@ export default class MongoEntity<T> {
     return this.collection.findOne(selector, options);
   } 
 
-  async findOneCachedById(id: string, selector?: Object) {
+  async findOneCachedById(id: string, selector?: Object): Promise<T> {
     if (!this._singleLoader) {
       this._singleLoader = new DataLoader((keys: string[]) => {
         return Promise.all(keys.map(async (loadId) => {
@@ -92,7 +92,7 @@ export default class MongoEntity<T> {
     }
   }
 
-  async findManyCached(selector?: Object) {
+  async findManyCached(selector?: Object): Promise<T[]> {
 
     if (!this._multiLoader) {
       this._multiLoader = new DataLoader((param: any) => {

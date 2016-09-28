@@ -1,6 +1,6 @@
 {
   "name": "apollo-connector-mongodb",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Apollo connector for mongodb",
   "main": "./dist/index.js",
   "scripts": {
