@@ -4,7 +4,7 @@ export default class MongoConnector {
   private mongoUrl: string; 
   private db: Db;
 
-  constructor(url: string, started: Function) {
+  constructor(url: string, started?: Function) {
     this.mongoUrl = url;
 
     if (started) {

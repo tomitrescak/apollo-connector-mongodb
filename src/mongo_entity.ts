@@ -2,7 +2,8 @@ import MongoConnector from './mongo_connector';
 import * as Random from 'meteor-random';
 import DataLoader = require('dataloader');
 
-import { Collection, FindOneOptions, Cursor, ReplaceOneOptions, InsertOneWriteOpResult, UpdateWriteOpResult } from 'mongodb';
+import { Collection, FindOneOptions, Cursor, ReplaceOneOptions, 
+  InsertOneWriteOpResult, UpdateWriteOpResult, DeleteWriteOpResultObject } from 'mongodb';
 
 export default class MongoEntity<T> {
 
@@ -41,6 +42,32 @@ export default class MongoEntity<T> {
     }
   }
 
+  assignFilter(object: Object, selector: Object, result: Object, include: 0 | 1) {
+    return (k: string) => {
+      if (selector[k] != include) {
+        throw new Error('You cannot combine include and exclude!');
+      }
+      if (include) {
+        result[k] = object[k];
+      } else {
+        delete(result[k]);
+      }
+    }
+  }
+
+  filter(object: Object, selector: Object) {
+    let keys = Object.keys(selector);
+    if (keys.length == 0) {
+      throw new Error('You need to specify the selector!');
+    }
+
+    let include = selector[keys[0]];
+    let result = include ? {} : Object.assign({}, object);
+    let selectorFunction = this.assignFilter(object, selector, result, include);
+    keys.forEach(selectorFunction);
+    return result;
+  }
+
   find(selector: Object, fields?: Object, skip?: number, limit?: number, timeout?: number): Cursor<T> {
     return this.collection.find(selector, fields, skip, limit, timeout);
   }
@@ -49,7 +76,7 @@ export default class MongoEntity<T> {
     return this.collection.findOne(selector, options);
   } 
 
-  async findOneCachedById(id: string) {
+  async findOneCachedById(id: string, selector?: Object) {
     if (!this._singleLoader) {
       this._singleLoader = new DataLoader((keys: string[]) => {
         return Promise.all(keys.map(async (loadId) => {
@@ -57,23 +84,43 @@ export default class MongoEntity<T> {
         }));
       });
     }
-    return this._singleLoader.load(id);
+    if (selector) {
+      const result = await this._singleLoader.load(id);
+      return this.filter(result, selector);
+    } else {
+      return this._singleLoader.load(id);
+    }
   }
 
-  async findManyCached() {
+  async findManyCached(selector?: Object) {
 
     if (!this._multiLoader) {
       this._multiLoader = new DataLoader((param: any) => {
         return Promise.all([this.collection.find().toArray()]);
       });
     }
-    return  this._multiLoader.load('ALL');
+
+    if (selector) {
+      const result = await this._multiLoader.load('ALL');
+      return result.map(r => this.filter(r, selector));
+    } else {
+      return this._multiLoader.load('ALL');
+    }
+    
   }
 
   insert(document: T): Promise<InsertOneWriteOpResult> {
     this.clearInsertCaches(document);
 
     return this.collection.insertOne(document);
+  }
+
+  delete(document: T, many = false): Promise<DeleteWriteOpResultObject> {
+    this.clearInsertCaches(document);
+    if (many) {
+      return this.collection.deleteMany(document);
+    }
+    return this.collection.deleteOne(document);
   }
 
   update(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
