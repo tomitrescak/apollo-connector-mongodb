@@ -169,6 +169,13 @@ describe('entity', () => {
       assert.deepEqual(resultWithout, { b: 2 });
     });
 
+    it('does not include undefined elements', function () {
+      const obj = { a: 1, b: 2, c: 3 };
+
+      const resultWith = entity.filter(obj, { a: 1, c: 1, d: 1 });
+      assert.deepEqual(resultWith, { a: 1, c: 3 });
+    });
+
     it('throws error when no filter is specified', function () {
       const obj = {};
 

@@ -48,7 +48,9 @@ export default class MongoEntity<T> {
         throw new Error('You cannot combine include and exclude!');
       }
       if (include) {
-        result[k] = object[k];
+        if (object[k] !== undefined) {
+          result[k] = object[k];
+        }
       } else {
         delete(result[k]);
       }
