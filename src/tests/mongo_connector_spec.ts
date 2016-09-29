@@ -2,17 +2,37 @@ import * as proxyquire from 'proxyquire';
 import * as assert from 'power-assert';
 import * as sinon from 'sinon';
 
+import { MongoClient } from 'mongodb';
+import { getDb } from '../testing';
+
 // import proxied connector
 const connectStub = sinon.spy();
 
 const MongoStub: any = {
   MongoClient: {
-    connect: () => {}
+    connect: () => { }
   }
 }
 const MongoConnector = proxyquire('../mongo_connector', { 'mongodb': MongoStub }).default;
 
 describe('connector', () => {
+
+  // before(async function () {
+    
+  //   // delete other
+  //   const db = await getDb();
+  //   const dbs = await db.admin().listDatabases();
+  //   dbs.databases.forEach((tdb: any) => {
+  //     if (tdb.name.substring(0, 3) === 'tmp') {
+  //       MongoClient.connect(`mongodb://127.0.0.1:27017/${tdb.name}`, function (err, cdb) {
+  //         cdb.dropDatabase();
+  //         cdb.close();
+  //       });
+  //     }
+  //   })
+  // });
+
+
   it('will initialise url', () => {
     //console.log(connectStub.calledOnce);
     //assert()
@@ -27,7 +47,7 @@ describe('connector', () => {
     assert(spy.calledOnce);
   });
 
-  it('will not initialise db on error and logs error', sinon.test(function() {
+  it('will not initialise db on error and logs error', sinon.test(function () {
 
     //assert()
     const url = 'mongodb://url';
@@ -36,7 +56,7 @@ describe('connector', () => {
     // spy on console.dir
     const dirStub = this.stub(console, 'dir');
     MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
-    
+
     const connector = new MongoConnector(url);
     connector.connect();
     assert.equal(connector.db, undefined);
@@ -52,7 +72,7 @@ describe('connector', () => {
     const startedSpy = sinon.spy();
 
     MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
-    
+
     const connector = new MongoConnector(url, startedSpy);
     assert.equal(connector.db, db);
     assert(startedSpy.calledOnce);
@@ -67,7 +87,7 @@ describe('connector', () => {
     };
 
     MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
-    
+
     const connector = new MongoConnector(url);
     connector.connect();
     assert.equal(connector.db, db);

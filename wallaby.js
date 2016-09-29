@@ -1,4 +1,3 @@
-
 const transform = require('import-to-commonjs').default;
 
 module.exports = function (w) {
