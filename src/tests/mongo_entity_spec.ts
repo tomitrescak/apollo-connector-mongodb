@@ -2,10 +2,10 @@ import * as assert from 'power-assert';
 import * as sinon from 'sinon';
 
 import { MongoClient, Db } from 'mongodb';
-
 import { config, getConnector, disposeDb, withEntity } from '../testing';
 
 import Entity from '../mongo_entity';
+import * as lru from 'lru-cache';
 
 const host = process.env.MONGODB_HOST || '127.0.0.1';
 const port = process.env.MONGODB_PORT || 27017;
@@ -25,15 +25,15 @@ describe('entity', () => {
     const cache = { local: '' };
     const entity = new Entity(null, 'name', cache);
 
-    assert.equal(entity['_dataLoaderOptions'].cacheMap, cache);
+    assert.equal(entity['_cache'], cache);
 
-    const globalCache = { global: '1' };
-    Entity.DataLoaderOptions = { cacheMap: globalCache };
+    const globalCache: any = { global: '1' };
+    Entity.DefaultCache = globalCache;
 
     const otherEntity = new Entity(null, 'name');
-    assert.equal(otherEntity['_dataLoaderOptions'].cacheMap, globalCache);
+    assert.equal(otherEntity['_cache'], globalCache);
 
-    Entity.DataLoaderOptions = null;
+    Entity.DefaultCache = null;
   });
 
   describe('find', () => {
@@ -139,7 +139,6 @@ describe('entity', () => {
       //   }
         );
     });
-
 
 
     it('findOneCached can filter returned results', async () => {
@@ -272,5 +271,55 @@ describe('entity', () => {
         assert.equal(e3.collection.collectionName, 'e3');
       }, { entities: [{ name: 'e1'}, { name: 'e2'}, { name: 'e3'}] })
     });
-  })
+  });
+
+  describe('custom loaders', () => {
+    it ('can create a new data-loader with a custom cache', async function() {
+      await withEntity(async (entity) => {
+        const records = [{ _id: 1, name: 'A'}, { _id: 2, name: 'B'}, { _id: 3, name: 'C'}]
+        entity.insertMany(records);  
+
+        const loader = entity.createLoader(
+          (name: string) => {
+            return entity.collection.findOne({ name });
+          }, {
+            cacheMap: 'lru',
+            clearOnInsert: true
+          }
+        );
+
+        // get doc and use cache
+        const spy = sinon.spy(entity.collection, 'findOne');
+        await entity.findOneCached(loader, 'A');
+        await entity.findOneCached(loader, 'A');
+        await entity.findOneCached(loader, 'B');
+        await entity.findOneCached(loader, 'B');
+        await entity.findOneCached(loader, 'A');
+        await entity.update({_id: 1}, { $set: { name: 'D' } });
+
+        sinon.assert.calledTwice(spy);
+        spy.reset();
+
+        // finding new element will need to query for it in DB
+        await entity.findOneCached(loader, 'C');
+        await entity.findOneCached(loader, 'A');
+
+        sinon.assert.calledOnce(spy);
+        spy.reset();
+
+        // finding new element pushed out oldest one form cache
+        await entity.findOneCached(loader, 'B');
+        sinon.assert.calledOnce(spy);
+
+        // test updates
+        spy.reset();
+        entity.insert({ _id: 4, name: 'D'});
+
+        // B should be out of the cache after update so it will need to be re-requested
+        await entity.findOneCached(loader, 'B');
+        sinon.assert.calledOnce(spy);
+
+      });
+    })
+  });
 });

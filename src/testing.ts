@@ -31,6 +31,7 @@ export async function getDb() {
 export interface TestOption<T> {
   data?: T[];
   name?: string;
+  type?: any,
   entity?: MongoEntity<T>;
 }
 export interface TestOptions {
@@ -51,8 +52,11 @@ export async function withEntity<T>(test: (...entity: MongoEntity<T>[]) => any, 
   if (options && options.entities) {
     for (let i = 0; i < options.entities.length; i++) {
       // init entity
-      const name = options.entities[i].name;
-      let entity = new MongoEntity<T>(connector, name ? name : `test_${i}`);
+      const option = options.entities[i];
+      const name = option.name;
+      const type = option.type ? option.type : MongoEntity;
+      
+      let entity = new type(connector, name ? name : `test_${i}`);
       entities.push(entity);
 
       // init data

@@ -2,14 +2,38 @@ import MongoConnector from './mongo_connector';
 import * as Random from 'meteor-random';
 import DataLoader = require('dataloader');
 
-import { Collection, FindOneOptions, Cursor, ReplaceOneOptions, 
-  InsertOneWriteOpResult, UpdateWriteOpResult, DeleteWriteOpResultObject } from 'mongodb';
+import {
+  Collection, FindOneOptions, Cursor, ReplaceOneOptions,
+  InsertOneWriteOpResult, UpdateWriteOpResult, DeleteWriteOpResultObject
+} from 'mongodb';
 
-interface Options<K, V> {
-    batch?: boolean;
-    cache?: boolean;
-    cacheKeyFn?: (key: any) => any;
-    cacheMap?: Map<K, Promise<V>>;
+export interface Options<K, V> {
+  batch?: boolean;
+  cache?: boolean;
+  cacheKeyFn?: (key: any) => any;
+  cacheMap?: Map<K, Promise<V>> | 'lru'; // TODO: add TTL
+  clearOnInsert?: boolean;
+  clearOnUpdate?: boolean;
+}
+
+class LruCacheWrapper<K, V> {
+  cache: any;
+
+  constructor() {
+    const lru = require('lru-cache');
+    this.cache = lru({max: 2});
+  }
+
+  clear() { this.cache.reset() }
+  get(key: K) { return this.cache.get(key); }
+  set(key: K, value: V) { return this.cache.set(key, value); }
+  delete(key: K) { 
+    if (this.cache.has(key)) {
+      this.cache.del(key); 
+      return true;
+    }
+    return false;
+  }
 }
 
 export default class MongoEntity<T> {
@@ -21,9 +45,12 @@ export default class MongoEntity<T> {
   private _collection: Collection<T>;
   private _singleLoader: DataLoader<any, T>;
   private _multiLoader: DataLoader<any, T[]>;
-  private _dataLoaderOptions: Options<any, T | T[]>;
 
-  public static DataLoaderOptions: Object;
+  private _insertLoaders: DataLoader<any, T>[];
+  private _updateLoaders: DataLoader<any, T>[];
+
+  public static DefaultCache: any;
+  private _cache: 'lru' | any;
 
   get collection(): Collection<T> {
     if (!this._collection) {
@@ -37,27 +64,22 @@ export default class MongoEntity<T> {
     this._collectionName = collectionName;
 
     // figure out caching options
-    if (cache) {
-      this._dataLoaderOptions = {
-        cacheMap: cache
-      }
-    } else if (MongoEntity.DataLoaderOptions) {
-      this._dataLoaderOptions = MongoEntity.DataLoaderOptions;
-    }
+    this._cache = cache ? cache : MongoEntity.DefaultCache;
   }
 
   clearUpdateCaches(selector: any) {
-    if (this._singleLoader) {
+    if (this._updateLoaders) {
       if (selector._id) {
-        this._singleLoader.clear(selector._id);
+        this._updateLoaders.forEach(u => u.clear(selector._id));
       } else {
-        this._singleLoader.clearAll();
+        this._updateLoaders.forEach(u => u.clearAll());
       }
     }
-   }
+  }
+
   clearInsertCaches(selector: Object) {
-    if (this._multiLoader) {
-      this._multiLoader.clearAll();
+    if (this._insertLoaders) {
+      this._insertLoaders.forEach(i => i.clearAll());
     }
   }
 
@@ -71,7 +93,7 @@ export default class MongoEntity<T> {
           result[k] = object[k];
         }
       } else {
-        delete(result[k]);
+        delete (result[k]);
       }
     }
   }
@@ -95,7 +117,7 @@ export default class MongoEntity<T> {
 
   findOne(selector: Object, options?: FindOneOptions): Promise<T> {
     return this.collection.findOne(selector, options);
-  } 
+  }
 
   async findOneCached(loader: DataLoader<string, T>, key: string, selector?: Object): Promise<T> {
     if (selector) {
@@ -108,11 +130,9 @@ export default class MongoEntity<T> {
 
   async findOneCachedById(id: string, selector?: Object): Promise<T> {
     if (!this._singleLoader) {
-      this._singleLoader = new DataLoader((keys: string[]) => {
-        return Promise.all(keys.map((loadId) => {
-          return this.collection.findOne({_id: loadId });
-        }));
-      }, this._dataLoaderOptions);
+      this._singleLoader = this.createLoader((loadId) => {
+        return this.collection.findOne({ _id: loadId });
+      }, this.createOptions({ clearOnUpdate: true }));
     }
     return this.findOneCached(this._singleLoader, id, selector);
   }
@@ -128,11 +148,21 @@ export default class MongoEntity<T> {
 
   async findAllCached(selector?: Object): Promise<T[]> {
     if (!this._multiLoader) {
-      this._multiLoader = new DataLoader((param: any) => {
-        return Promise.all([this.collection.find().toArray()]);
-      }, this._dataLoaderOptions);
+      this._multiLoader = this.createLoader(
+        () => this.collection.find().toArray(),
+        this.createOptions({ clearOnInsert: true }));
     }
     return this.findManyCached(this._multiLoader, 'ALL', selector);
+  }
+
+  createOptions(options: any) {
+    if (options.cacheMap) {
+      return options;
+    }
+    if (this._cache) {
+      options.cacheMap = this._cache;
+    }
+    return options;
   }
 
   insert(document: T): Promise<InsertOneWriteOpResult> {
@@ -159,5 +189,37 @@ export default class MongoEntity<T> {
     this.clearUpdateCaches(selector);
 
     return this.collection.updateOne(selector, update, options);
+  }
+
+  createLoader(selectorFunction: (key: any) => Promise<any>, options?: Options<any, T | T[]>) {
+    const opts: any = options;
+
+    // replace caches
+    if (opts.cacheMap == 'lru') {
+      opts.cacheMap = new LruCacheWrapper<any, T>();
+    }
+
+    const loader = new DataLoader<any, T | T[]>((keys: any[]) => {
+      return Promise.all(keys.map(selectorFunction));
+    }, opts);
+
+    console.log(options)
+
+    if (options) {
+      if (options.clearOnInsert) {
+        if (!this._insertLoaders) {
+          this._insertLoaders = [];
+        }
+        this._insertLoaders.push(loader);
+      }
+
+      if (options.clearOnUpdate) {
+        if (!this._updateLoaders) {
+          this._updateLoaders = [];
+        }
+        this._updateLoaders.push(loader);
+      }
+    }
+    return loader;
   }
 }
