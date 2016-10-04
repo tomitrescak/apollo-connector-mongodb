@@ -1,5 +1,6 @@
 import * as assert from 'power-assert';
 import * as sinon from 'sinon';
+import * as proxyquire from 'proxyquire';
 
 import { MongoClient, Db } from 'mongodb';
 import { config, getConnector, disposeDb, withEntity } from '../testing';
@@ -152,6 +153,21 @@ describe('entity', () => {
     });
   });
 
+  describe ('addCacheToOptions', () => {
+    it('adds entitys cache to options', function() {
+      const cache = { g: 1 };
+      const entity = new Entity(null, null, cache);
+      const options = { };
+
+      const res1 = entity.addCacheToOptions(options);
+      assert.deepEqual(res1, { cacheMap: cache });
+
+      const optionsWithCache = { cacheMap: { } };
+      const res2 = entity.addCacheToOptions(optionsWithCache);
+      assert.deepEqual(res2, optionsWithCache);
+    });
+  });
+
   describe('filter', () => {
     it('can filter objects properties', function () {
       const entity = new Entity(null, null);
@@ -260,6 +276,15 @@ describe('entity', () => {
     });
   });
 
+  describe ('dispose', () => {
+    it ('deletes all records', sinon.test(function() {
+      const entity = new Entity(null, 'name');
+      const stub = this.stub(entity, 'delete');
+      entity.dispose();
+      sinon.assert.calledWith(stub, {}, true);
+    }));
+  });
+
   describe('testing', () => {
     it('can execute test with multiple entities', async function() {
       await withEntity((e1, e2, e3) => {
@@ -274,6 +299,12 @@ describe('entity', () => {
   });
 
   describe('custom loaders', () => {
+    it ('throws error when selectorKeyFunction is not specified with updates', async () => {
+      await withEntity((entity) => {
+         assert.throws(() => entity.createLoader(() => {}, { clearOnUpdate: true }), /You need to provide cache key function to determine when cache needs to be updated/);
+      })
+    });
+
     it ('can create a new data-loader with a custom cache', async function() {
       await withEntity(async (entity) => {
         const records = [{ _id: 1, name: 'A'}, { _id: 2, name: 'B'}, { _id: 3, name: 'C'}]
@@ -286,7 +317,7 @@ describe('entity', () => {
             cacheMap: 'lru',
             clearOnInsert: true,
             clearOnUpdate: true,
-            selectorKeyFn: a => a.name
+            selectorKeyFn: (a: any) => a.name
           }
         );
 
@@ -328,5 +359,39 @@ describe('entity', () => {
         sinon.assert.calledOnce(spy);
       });
     })
+  });
+
+  describe ('LruCacheWrapper', () => {
+    it ('maps lru-cache functions', sinon.test(function() {
+      function cacheStub() {
+        return {
+          get: sinon.stub(),
+          set: sinon.stub(),
+          reset: sinon.stub(),
+          has: sinon.stub(),
+          del: sinon.stub()
+        }
+      }
+      const { LruCacheWrapper } = proxyquire('../mongo_entity', {'lru-cache': cacheStub});
+      const cacheWrapper = new LruCacheWrapper();
+
+      cacheWrapper.clear();
+      sinon.assert.calledOnce(cacheWrapper.cache.reset);
+      cacheWrapper.get();
+      sinon.assert.calledOnce(cacheWrapper.cache.get);
+      cacheWrapper.set();
+      sinon.assert.calledOnce(cacheWrapper.cache.set);
+      cacheWrapper.cache.has.returns(true);
+      const positiveResult = cacheWrapper.delete('1');
+      assert(positiveResult);
+      sinon.assert.calledWith(cacheWrapper.cache.del, '1');
+      
+      cacheWrapper.cache.has.returns(false);
+      const negativeResult = cacheWrapper.delete('1');
+      assert.equal(negativeResult, false);
+    }));
+    
+
+     
   });
 });

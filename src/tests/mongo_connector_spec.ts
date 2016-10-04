@@ -14,7 +14,7 @@ const MongoStub: any = {
   }
 }
 const MongoConnector = proxyquire('../mongo_connector', { 'mongodb': MongoStub }).default;
-
+ 
 describe('connector', () => {
 
   // before(async function () {

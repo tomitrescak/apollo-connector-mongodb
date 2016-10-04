@@ -7,11 +7,20 @@ let host = '127.0.0.1';
 let port = '27017';
 let disposeTimeout = 200;
 let timeoutId: number = null;
+let initContext: (conn: any) => any = null;
 
-export function config(mongoHost: string = host, mongoPort: string = port, mongoDisposeTimeout: number = disposeTimeout) {
-  host = mongoHost;
-  port = mongoPort;
-  disposeTimeout = mongoDisposeTimeout;
+export interface ITestingOptions {
+  mongoHost?: string;
+  mongoPort?: string;
+  mongoDisposeTimeout?: number;
+  initContext?: (conn: any) => any;
+}
+
+export function config({mongoHost, mongoPort, mongoDisposeTimeout, initContext: ic}: ITestingOptions) {
+  host = mongoHost || host;
+  port = mongoPort || port;
+  disposeTimeout = mongoDisposeTimeout || disposeTimeout;
+  initContext = ic;
 }
 
 export async function getDb() {
@@ -23,6 +32,7 @@ export async function getDb() {
   console.log('New connection to ' + name);
 
   db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
+  console.log(db)
   global.db = db;
 
   return db;
@@ -39,7 +49,7 @@ export interface TestOptions {
 }
 
 
-export async function withEntity<T>(test: (...entity: MongoEntity<T>[]) => any, options?: TestOptions): Promise<any> {
+export async function withEntity(test: (...entity: any[]) => any, options?: TestOptions): Promise<any> {
 
   // stop disposal
   if (timeoutId != null) {
@@ -67,7 +77,7 @@ export async function withEntity<T>(test: (...entity: MongoEntity<T>[]) => any, 
       }
     }
   } else {
-    entities.push(new MongoEntity<T>(connector, 'test'));
+    entities.push(new MongoEntity(connector, 'test'));
   }
 
   // check for initial data
@@ -86,6 +96,32 @@ export async function withEntity<T>(test: (...entity: MongoEntity<T>[]) => any, 
   }
 }
 
+export async function withContext(test: (context: any) => any, initContextFn?: (conn: any) => any, disconnected = false): Promise<any> {
+  // stop disposal
+  if (timeoutId != null) {
+    clearTimeout(timeoutId);
+  }
+
+  const connector: any = disconnected ? null : await getConnector();
+  const context = initContextFn ? initContextFn(connector) : initContext(connector);
+
+  // execute test
+  try {
+    await test(context);
+  } catch (ex) {
+    throw ex;
+  } finally {
+    // find all Entities in context and clean up afterwards
+    for (let key of Object.keys(context)) {
+      if (context[key].dispose) {
+        await context[key].dispose({}, true);
+      }
+    }
+    // start dispose
+    disposeDb();
+  }
+}
+
 export async function getConnector() {
   let myDb = await getDb();
   return {
@@ -95,17 +131,23 @@ export async function getConnector() {
   }
 }
 
-export function disposeDb() {
-  // we let other tests to pickup this connection
-  timeoutId = setTimeout(async () => {
-    let myDb = db;
-    db = null;
-    if (myDb) {
-      console.log('tearing down db');
-      await myDb.dropDatabase();
-      await myDb.close();
-    }
-  }, disposeTimeout)
+async function dropDatabase() {
+  console.log(db)
+  let myDb = db;
+  db = null;
+  if (myDb) {
+    console.log('tearing down db');
+    await myDb.dropDatabase();
+    await myDb.close();
+    
+  }
+}
 
+export function disposeDb(immediate = false) {
+  if (immediate) {
+    dropDatabase();
+  }
+  // we let other tests to pickup this connection
+  timeoutId = setTimeout(dropDatabase, disposeTimeout);
 }
 
