@@ -14,6 +14,7 @@ export interface Options<K, V> {
   cacheMap?: Map<K, Promise<V>> | 'lru'; // TODO: add TTL
   clearOnInsert?: boolean;
   clearOnUpdate?: boolean;
+  selectorKeyFn?: (key: any) => any;
 }
 
 class LruCacheWrapper<K, V> {
@@ -36,6 +37,11 @@ class LruCacheWrapper<K, V> {
   }
 }
 
+interface ILoader<T> {
+  selectorKeyFn (key: any): any;
+  dataLoader: DataLoader<any, T[]>
+}
+
 export default class MongoEntity<T> {
 
   connector: MongoConnector;
@@ -47,7 +53,7 @@ export default class MongoEntity<T> {
   private _multiLoader: DataLoader<any, T[]>;
 
   private _insertLoaders: DataLoader<any, T>[];
-  private _updateLoaders: DataLoader<any, T>[];
+  private _updateLoaders: ILoader<T>[];
 
   public static DefaultCache: any;
   private _cache: 'lru' | any;
@@ -68,12 +74,17 @@ export default class MongoEntity<T> {
   }
 
   clearUpdateCaches(selector: any) {
+    console.log(this._updateLoaders);
     if (this._updateLoaders) {
-      if (selector._id) {
-        this._updateLoaders.forEach(u => u.clear(selector._id));
-      } else {
-        this._updateLoaders.forEach(u => u.clearAll());
-      }
+      this._updateLoaders.forEach(u => {
+        const key = u.selectorKeyFn(selector);
+        if (key) {
+          u.dataLoader.clear(selector._id);
+        } else {
+          u.dataLoader.clearAll();
+        }
+      });
+      
     }
   }
 
@@ -132,7 +143,7 @@ export default class MongoEntity<T> {
     if (!this._singleLoader) {
       this._singleLoader = this.createLoader((loadId) => {
         return this.collection.findOne({ _id: loadId });
-      }, this.createOptions({ clearOnUpdate: true }));
+      }, this.createOptions({ clearOnUpdate: true, selectorKeyFn: (a: any) => a._id }));
     }
     return this.findOneCached(this._singleLoader, id, selector);
   }
@@ -203,8 +214,6 @@ export default class MongoEntity<T> {
       return Promise.all(keys.map(selectorFunction));
     }, opts);
 
-    console.log(options)
-
     if (options) {
       if (options.clearOnInsert) {
         if (!this._insertLoaders) {
@@ -217,7 +226,13 @@ export default class MongoEntity<T> {
         if (!this._updateLoaders) {
           this._updateLoaders = [];
         }
-        this._updateLoaders.push(loader);
+        if (!options.selectorKeyFn) {
+          throw new Error('You need to provide cache key function to determine when cache needs to be updated')
+        }
+        this._updateLoaders.push({
+          dataLoader: loader,
+          selectorKeyFn: options.selectorKeyFn
+        });
       }
     }
     return loader;

@@ -284,7 +284,9 @@ describe('entity', () => {
             return entity.collection.findOne({ name });
           }, {
             cacheMap: 'lru',
-            clearOnInsert: true
+            clearOnInsert: true,
+            clearOnUpdate: true,
+            selectorKeyFn: a => a.name
           }
         );
 
@@ -295,9 +297,15 @@ describe('entity', () => {
         await entity.findOneCached(loader, 'B');
         await entity.findOneCached(loader, 'B');
         await entity.findOneCached(loader, 'A');
-        await entity.update({_id: 1}, { $set: { name: 'D' } });
 
         sinon.assert.calledTwice(spy);
+        spy.reset();
+
+        await entity.update({_id: 1}, { $set: { name: 'D' } });
+        const a = await entity.findOneCached(loader, 'A');
+
+        assert.equal(a, null);
+        sinon.assert.calledOnce(spy);
         spy.reset();
 
         // finding new element will need to query for it in DB
@@ -318,7 +326,6 @@ describe('entity', () => {
         // B should be out of the cache after update so it will need to be re-requested
         await entity.findOneCached(loader, 'B');
         sinon.assert.calledOnce(spy);
-
       });
     })
   });
