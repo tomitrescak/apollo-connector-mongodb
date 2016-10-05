@@ -1,1 +1,11 @@
 src
+wallaby.js
+tsconfig.json
+setup.jscircle.yml
+.coveralls.yml
+.npmignore
+.gitignore
+node_modules
+coverage
+.vscode
+./dist/tests

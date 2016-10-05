@@ -95,14 +95,14 @@ describe('entity', () => {
         const findSpy = sinon.spy(entity.collection, 'findOne');
         const cacheSpy = sinon.spy(entity, 'clearUpdateCaches');
 
-        await entity.insert({ _id: '1', file: 'foo' });
-        await entity.insert({ _id: '2', file: 'bar' });
+        await entity.insertOne({ _id: '1', file: 'foo' });
+        await entity.insertOne({ _id: '2', file: 'bar' });
 
         let foo = await entity.findOneCachedById('1');
         let bar = await entity.findOneCachedById('2');
 
         const selector = { _id: '1' };
-        entity.update(selector, { $set: { file: 'boo' } });
+        entity.updateOne(selector, { $set: { file: 'boo' } });
         assert(cacheSpy.calledWith(selector))
 
         // check update 
@@ -124,7 +124,7 @@ describe('entity', () => {
         let foo = await entity.findOneCachedById('1');
         let bar = await entity.findOneCachedById('2');
 
-        entity.update({ file: 'foo' }, { $set: { file: 'boo' } });
+        entity.updateOne({ file: 'foo' }, { $set: { file: 'boo' } });
 
         const findSpy = sinon.spy(entity.collection, 'findOne');
         foo = await entity.findOneCachedById('1');
@@ -144,7 +144,7 @@ describe('entity', () => {
 
     it('findOneCached can filter returned results', async () => {
       await withEntity(async (entity) => {
-        await entity.insert({ _id: '00', a: '1', b: '2', c: '3' });
+        await entity.insertOne({ _id: '00', a: '1', b: '2', c: '3' });
 
         // first we test if DB is called every time
         let result = await entity.findOneCachedById('00', { b: 1 });
@@ -235,10 +235,10 @@ describe('entity', () => {
       await withEntity(async (entity) => {
         const find = sinon.spy(entity.collection, 'find');
 
-        entity.insert({ _id: '1' });
+        entity.insertOne({ _id: '1' });
         let result = await entity.findAllCached();
         // insert document
-        entity.insert({ _id: '2' });
+        entity.insertOne({ _id: '2' });
         result = await entity.findAllCached();
 
         assert(find.calledTwice);
@@ -250,13 +250,13 @@ describe('entity', () => {
   describe('delete', () => {
     it('can delete a single document', async () => {
       await withEntity(async (entity) => {
-        await entity.insert({ _id: '00', a: '1', b: '2', c: '3' });
-        await entity.insert({ _id: '01', a: '1', b: '2', c: '3' });
+        await entity.insertOne({ _id: '00', a: '1', b: '2', c: '3' });
+        await entity.insertOne({ _id: '01', a: '1', b: '2', c: '3' });
 
         let result = await entity.findAllCached();
         assert.equal(result.length, 2);
 
-        await entity.delete({ _id: '00' });
+        await entity.deleteOne({ _id: '00' });
 
         result = await entity.findAllCached();
         assert.equal(result.length, 1);
@@ -265,10 +265,10 @@ describe('entity', () => {
 
     it('can delete multiple documents', async function () {
       await withEntity(async (entity) => {
-        await entity.insert({ _id: '00', a: '1', b: '2', c: '3' });
-        await entity.insert({ _id: '01', a: '1', b: '2', c: '3' });
+        await entity.insertOne({ _id: '00', a: '1', b: '2', c: '3' });
+        await entity.insertOne({ _id: '01', a: '1', b: '2', c: '3' });
 
-        await entity.delete({}, true);
+        await entity.deleteMany();
 
         const result = await entity.findAllCached();
         assert.equal(result.length, 0);
@@ -279,7 +279,7 @@ describe('entity', () => {
   describe ('dispose', () => {
     it ('deletes all records', sinon.test(function() {
       const entity = new Entity(null, 'name');
-      const stub = this.stub(entity, 'delete');
+      const stub = this.stub(entity, 'deleteMany');
       entity.dispose();
       sinon.assert.calledWith(stub, {}, true);
     }));
@@ -332,7 +332,7 @@ describe('entity', () => {
         sinon.assert.calledTwice(spy);
         spy.reset();
 
-        await entity.update({_id: 1}, { $set: { name: 'D' } });
+        await entity.updateOne({_id: 1}, { $set: { name: 'D' } });
         const a = await entity.findOneCached(loader, 'A');
 
         assert.equal(a, null);
@@ -352,7 +352,7 @@ describe('entity', () => {
 
         // test updates
         spy.reset();
-        entity.insert({ _id: 4, name: 'D'});
+        entity.insertOne({ _id: 4, name: 'D'});
 
         // B should be out of the cache after update so it will need to be re-requested
         await entity.findOneCached(loader, 'B');

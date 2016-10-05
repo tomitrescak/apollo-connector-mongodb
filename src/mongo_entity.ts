@@ -5,7 +5,7 @@ import { IDataLoader } from 'dataloader';
 const DataLoader = require('dataloader');
 
 import {
-  Collection, FindOneOptions, Cursor, ReplaceOneOptions,
+  Collection, FindOneOptions, Cursor, ReplaceOneOptions, WriteOpResult,
   InsertOneWriteOpResult, InsertWriteOpResult, UpdateWriteOpResult, DeleteWriteOpResultObject
 } from 'mongodb';
 
@@ -24,7 +24,6 @@ export class LruCacheWrapper<K, V> {
 
   constructor() {
     const lru = require('lru-cache');
-    console.log(lru)
     this.cache = lru({max: 2});
   }
 
@@ -176,34 +175,38 @@ export default class MongoEntity<T> {
     return options;
   }
 
-  insert(document: T): Promise<InsertOneWriteOpResult> {
+  insertOne(document: T): Promise<InsertOneWriteOpResult> {
     this.clearInsertCaches(document);
-
     return this.collection.insertOne(document);
   }
 
   insertMany(document: T[]): Promise<InsertWriteOpResult> {
     this.clearInsertCaches(document);
-
     return this.collection.insertMany(document);
   }
 
-  delete(selector: Object, many = false): Promise<DeleteWriteOpResultObject> {
+  deleteOne(selector: Object, many = false): Promise<DeleteWriteOpResultObject> {
     this.clearInsertCaches(selector);
-    if (many) {
-      return this.collection.deleteMany(selector);
-    }
     return this.collection.deleteOne(selector);
   }
 
-  dispose() {
-    return this.delete({}, true);
+  deleteMany(selector: Object, many = false): Promise<DeleteWriteOpResultObject> {
+    this.clearInsertCaches(selector);
+    return this.collection.deleteMany(selector);
   }
 
-  update(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
-    this.clearUpdateCaches(selector);
+  dispose() {
+    return this.deleteMany({}, true);
+  }
 
+  updateOne(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
+    this.clearUpdateCaches(selector);
     return this.collection.updateOne(selector, update, options);
+  }
+
+  updateMany(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
+    this.clearUpdateCaches(selector);
+    return this.collection.updateMany(selector, update, options);
   }
 
   createLoader(selectorFunction: (key: any) => Promise<any>, options?: Options<any, T | T[]>) {
