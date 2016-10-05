@@ -1,8 +1,9 @@
 src
 wallaby.js
 tsconfig.json
-setup.jscircle.yml
 .coveralls.yml
+circle.yml
+setup.js
 .npmignore
 .gitignore
 node_modules

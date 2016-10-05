@@ -1,10 +1,40 @@
 import * as sinon from 'sinon';
 import MongoEntity from '../mongo_entity';
-import { withContext, config, itWithContext, itWithEntity } from '../testing';
+import { withContext, withEntity, config, itWithContext, itWithEntity } from '../testing';
 import * as assert from 'power-assert';
 import * as proxyquire from 'proxyquire';
 
+class CutomEntity extends MongoEntity<any> {
+  name = 'customEntity';
+}
+
 describe('Testing Helpers', () => {
+  describe('withEntity', () => {
+    it('cleans up after error has been thrown', async () => {
+      let deleteSpy: any = null;
+      try {
+        await withEntity(async (entity) => {
+          deleteSpy = sinon.spy(entity, 'deleteMany');
+          throw new Error('Error');
+        });
+      } catch(ex) { /**/ }
+      sinon.assert.calledOnce(deleteSpy);
+    });
+
+    it('can create custom entities', async () => {
+      await withEntity(async (entity) => {
+        assert.equal(entity.name, 'customEntity');
+      }, { entities: [{ type: CutomEntity }] });
+    });
+
+    it('can create multiple entities', async () => {
+      await withEntity(async (one, two) => {
+        assert.equal(one.collection.collectionName, 'One');
+        assert.equal(two.collection.collectionName, 'Two');
+      }, { entities: [{ name: 'One' }, { name: 'Two'}] });
+    });
+  });
+
   describe('withContext', () => {
     it('initializes context with connection, executes tests and cleans up afterwards', async function () {
       function initContext(conn: any) {
@@ -24,9 +54,7 @@ describe('Testing Helpers', () => {
         inContext = context;
       }, initContext);
 
-      sinon
-        .assert
-        .calledOnce(deleteSpy);
+      sinon.assert.calledOnce(deleteSpy);
     });
 
     it('throws exception but also cleans up', async function () {
@@ -73,7 +101,10 @@ describe('Testing Helpers', () => {
       }
       const {withContext, config} = proxyquire('../testing', { 'mongodb': MongoStub });
 
-      const initContext = sinon.stub().returns({});
+      const initContext = (connector: any) => {
+        assert(connector.collection());
+        return {};
+      };
       config({ initContext });
 
       await withContext((context: any) => { }, null, true);

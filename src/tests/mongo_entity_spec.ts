@@ -3,7 +3,7 @@ import * as sinon from 'sinon';
 import * as proxyquire from 'proxyquire';
 
 import { MongoClient, Db } from 'mongodb';
-import { config, getConnector, disposeDb, withEntity } from '../testing';
+import { config, getConnector, disposeDb, withEntity, itWithEntity as ite } from '../testing';
 
 import Entity from '../mongo_entity';
 import * as lru from 'lru-cache';
@@ -67,102 +67,108 @@ describe('entity', () => {
   });
 
   describe('findOneCachedById', () => {
-    it('can find and cache results of finding a single item', async () => {
-      await withEntity(async (entity) => {
-        const find = sinon.spy(entity.collection, 'findOne');
+    ite('can find and cache results of finding a single item', async (entity) => {
+      const find = sinon.spy(entity.collection, 'findOne');
 
-        // first we test if DB is called every time
-        let result = await entity.findOne({ _id: '1' });
-        result = await entity.findOne({ _id: '1' });
-        assert.deepEqual(result, { _id: '1' });
+      // first we test if DB is called every time
+      let result = await entity.findOne({ _id: '1' });
+      result = await entity.findOne({ _id: '1' });
+      assert.deepEqual(result, { _id: '1' });
 
-        assert(find.calledTwice);
+      assert(find.calledTwice);
 
-        // now test caching
-        find.reset();
-        result = await entity.findOneCachedById('1');
-        result = await entity.findOneCachedById('1');
+      // now test caching
+      find.reset();
+      result = await entity.findOneCachedById('1');
+      result = await entity.findOneCachedById('1');
 
-        assert(find.calledOnce);
-      }, {
+      assert(find.calledOnce);
+    }, {
         entities: [{
           data: [{ _id: '1' }]
-        }]}) 
-    });
-
-    it('clears the related cache when a document is updated', async function () {
-      await withEntity(async (entity) => {
-        const findSpy = sinon.spy(entity.collection, 'findOne');
-        const cacheSpy = sinon.spy(entity, 'clearUpdateCaches');
-
-        await entity.insertOne({ _id: '1', file: 'foo' });
-        await entity.insertOne({ _id: '2', file: 'bar' });
-
-        let foo = await entity.findOneCachedById('1');
-        let bar = await entity.findOneCachedById('2');
-
-        const selector = { _id: '1' };
-        entity.updateOne(selector, { $set: { file: 'boo' } });
-        assert(cacheSpy.calledWith(selector))
-
-        // check update 
-        findSpy.reset();
-
-        foo = await entity.findOneCachedById('1');
-        assert.deepEqual(foo, { _id: '1', file: 'boo' });
-        assert(findSpy.calledOnce);
-
-        // check if the other has been called coorectly
-        findSpy.reset();
-        bar = await entity.findOneCachedById('2');
-        assert(findSpy.notCalled);
+        }]
       });
+
+    ite('clears the related cache when a document is updated', async function (entity) {
+      const findSpy = sinon.spy(entity.collection, 'findOne');
+      const cacheSpy = sinon.spy(entity, 'clearUpdateCaches');
+
+      await entity.insertOne({ _id: '1', file: 'foo' });
+      await entity.insertOne({ _id: '2', file: 'bar' });
+
+      let foo = await entity.findOneCachedById('1');
+      let bar = await entity.findOneCachedById('2');
+
+      const selector = { _id: '1' };
+      entity.updateOne(selector, { $set: { file: 'boo' } });
+      assert(cacheSpy.calledWith(selector))
+
+      // check update 
+      findSpy.reset();
+
+      foo = await entity.findOneCachedById('1');
+      assert.deepEqual(foo, { _id: '1', file: 'boo' });
+      assert(findSpy.calledOnce);
+
+      // check if the other has been called coorectly
+      findSpy.reset();
+      bar = await entity.findOneCachedById('2');
+      assert(findSpy.notCalled);
     });
 
-    it('clears all caches when a document is updated and selector is unknown', async function () {
-      await withEntity(async (entity) => {
-        let foo = await entity.findOneCachedById('1');
-        let bar = await entity.findOneCachedById('2');
+    ite('clears all caches when a document is updated and selector is unknown', async function (entity) {
+      let foo = await entity.findOneCachedById('1');
+      let bar = await entity.findOneCachedById('2');
 
-        entity.updateOne({ file: 'foo' }, { $set: { file: 'boo' } });
+      entity.updateOne({ file: 'foo' }, { $set: { file: 'boo' } });
 
-        const findSpy = sinon.spy(entity.collection, 'findOne');
-        foo = await entity.findOneCachedById('1');
-        bar = await entity.findOneCachedById('2');
+      const findSpy = sinon.spy(entity.collection, 'findOne');
+      foo = await entity.findOneCachedById('1');
+      bar = await entity.findOneCachedById('2');
 
-          assert(findSpy.calledTwice);
-        }, 
-        // {
-        //     data: [
-        //       { _id: '1', file: 'foo' },
-        //       { _id: '2', file: 'bar' }
-        //   ]
-      //   }
-        );
+      assert(findSpy.calledTwice);
     });
 
 
-    it('findOneCached can filter returned results', async () => {
-      await withEntity(async (entity) => {
+    ite('findOneCached can filter returned results', async (entity) => {
         await entity.insertOne({ _id: '00', a: '1', b: '2', c: '3' });
 
         // first we test if DB is called every time
         let result = await entity.findOneCachedById('00', { b: 1 });
         assert.deepEqual(result, { b: '2' });
-      });
     });
   });
 
-  describe ('addCacheToOptions', () => {
-    it('adds entitys cache to options', function() {
+  describe('updates', () => {
+    ite('one', async function(entity: Entity<any>) {
+      const stub = sinon.stub(entity.collection, 'updateOne');
+      const selector = {};
+      const modifier = {};
+      const properties = {};
+      entity.updateOne(selector, modifier, properties);
+      sinon.assert.calledWith(stub, selector, modifier, properties)
+    });
+
+    ite('many', async function(entity) {
+      const stub = sinon.stub(entity.collection, 'updateMany');
+      const selector = {};
+      const modifier = {};
+      const properties = {};
+      entity.updateMany(selector, modifier, properties);
+      sinon.assert.calledWith(stub, selector, modifier, properties)
+    })
+  })
+
+  describe('addCacheToOptions', () => {
+    it('adds entitys cache to options', function () {
       const cache = { g: 1 };
       const entity = new Entity(null, null, cache);
-      const options = { };
+      const options = {};
 
       const res1 = entity.addCacheToOptions(options);
       assert.deepEqual(res1, { cacheMap: cache });
 
-      const optionsWithCache = { cacheMap: { } };
+      const optionsWithCache = { cacheMap: {} };
       const res2 = entity.addCacheToOptions(optionsWithCache);
       assert.deepEqual(res2, optionsWithCache);
     });
@@ -276,8 +282,8 @@ describe('entity', () => {
     });
   });
 
-  describe ('dispose', () => {
-    it ('deletes all records', sinon.test(function() {
+  describe('dispose', () => {
+    it('deletes all records', sinon.test(function () {
       const entity = new Entity(null, 'name');
       const stub = this.stub(entity, 'deleteMany');
       entity.dispose();
@@ -286,7 +292,7 @@ describe('entity', () => {
   });
 
   describe('testing', () => {
-    it('can execute test with multiple entities', async function() {
+    it('can execute test with multiple entities', async function () {
       await withEntity((e1, e2, e3) => {
         assert(e1);
         assert.equal(e1.collection.collectionName, 'e1');
@@ -294,21 +300,21 @@ describe('entity', () => {
         assert.equal(e2.collection.collectionName, 'e2');
         assert(e3);
         assert.equal(e3.collection.collectionName, 'e3');
-      }, { entities: [{ name: 'e1'}, { name: 'e2'}, { name: 'e3'}] })
+      }, { entities: [{ name: 'e1' }, { name: 'e2' }, { name: 'e3' }] })
     });
   });
 
   describe('custom loaders', () => {
-    it ('throws error when selectorKeyFunction is not specified with updates', async () => {
+    it('throws error when selectorKeyFunction is not specified with updates', async () => {
       await withEntity((entity) => {
-         assert.throws(() => entity.createLoader(() => {}, { clearOnUpdate: true }), /You need to provide cache key function to determine when cache needs to be updated/);
+        assert.throws(() => entity.createLoader(() => { }, { clearOnUpdate: true }), /You need to provide cache key function to determine when cache needs to be updated/);
       })
     });
 
-    it ('can create a new data-loader with a custom cache', async function() {
+    it('can create a new data-loader with a custom cache', async function () {
       await withEntity(async (entity) => {
-        const records = [{ _id: 1, name: 'A'}, { _id: 2, name: 'B'}, { _id: 3, name: 'C'}]
-        entity.insertMany(records);  
+        const records = [{ _id: 1, name: 'A' }, { _id: 2, name: 'B' }, { _id: 3, name: 'C' }]
+        entity.insertMany(records);
 
         const loader = entity.createLoader(
           (name: string) => {
@@ -332,7 +338,7 @@ describe('entity', () => {
         sinon.assert.calledTwice(spy);
         spy.reset();
 
-        await entity.updateOne({_id: 1}, { $set: { name: 'D' } });
+        await entity.updateOne({ _id: 1 }, { $set: { name: 'D' } });
         const a = await entity.findOneCached(loader, 'A');
 
         assert.equal(a, null);
@@ -352,7 +358,7 @@ describe('entity', () => {
 
         // test updates
         spy.reset();
-        entity.insertOne({ _id: 4, name: 'D'});
+        entity.insertOne({ _id: 4, name: 'D' });
 
         // B should be out of the cache after update so it will need to be re-requested
         await entity.findOneCached(loader, 'B');
@@ -361,8 +367,8 @@ describe('entity', () => {
     })
   });
 
-  describe ('LruCacheWrapper', () => {
-    it ('maps lru-cache functions', sinon.test(function() {
+  describe('LruCacheWrapper', () => {
+    it('maps lru-cache functions', sinon.test(function () {
       function cacheStub() {
         return {
           get: sinon.stub(),
@@ -372,7 +378,7 @@ describe('entity', () => {
           del: sinon.stub()
         }
       }
-      const { LruCacheWrapper } = proxyquire('../mongo_entity', {'lru-cache': cacheStub});
+      const { LruCacheWrapper } = proxyquire('../mongo_entity', { 'lru-cache': cacheStub });
       const cacheWrapper = new LruCacheWrapper();
 
       cacheWrapper.clear();
@@ -385,13 +391,13 @@ describe('entity', () => {
       const positiveResult = cacheWrapper.delete('1');
       assert(positiveResult);
       sinon.assert.calledWith(cacheWrapper.cache.del, '1');
-      
+
       cacheWrapper.cache.has.returns(false);
       const negativeResult = cacheWrapper.delete('1');
       assert.equal(negativeResult, false);
     }));
-    
 
-     
+
+
   });
 });
