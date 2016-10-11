@@ -117,7 +117,13 @@ export async function withContext(test: (context: any) => any, initContextFn?: (
   }
 
   const connector: any = disconnected ? fakeConnector : await getConnector();
-  const context = initContextFn ? initContextFn(connector) : initContext(connector);
+  initContext = initContextFn || initContext;
+
+  if (!initContext) {
+    throw new Error('No initContext provided, please pass as a parameter or use global config');
+  }
+
+  const context = initContext(connector);
 
   // execute test
   try {

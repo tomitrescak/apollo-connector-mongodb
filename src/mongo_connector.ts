@@ -1,30 +1,31 @@
 import { MongoClient, Db, Collection } from 'mongodb';
 
 export default class MongoConnector {
-  private mongoUrl: string; 
+  private mongoUrl: string;
   private db: Db;
 
-  constructor(url: string, started?: Function) {
+  constructor(url: string) {
     this.mongoUrl = url;
-
-    if (started) {
-      this.connect(started);
-    }
   }
 
   connect(started?: Function) {
-    const that = this;
-    MongoClient.connect(this.mongoUrl, function (err, db) {
-      if (err) { 
-        return console.dir(err); 
-      }
-      console.log('Connected to MongoDB at ' + that.mongoUrl);
-      that.db = db;
+    return new Promise((error, resolve) => {
+      const that = this;
+      MongoClient.connect(this.mongoUrl, function (err, db) {
+        if (err) {
+          error(err);
+          return console.dir(err);
+        }
+        console.log('Connected to MongoDB at ' + that.mongoUrl);
+        that.db = db;
 
-      if (started) {
-        started();
-      }
-    });
+        if (started) {
+          started();
+        }
+
+        resolve(this);
+      });
+    })
   }
 
   collection<T>(name: string): Collection<T> {

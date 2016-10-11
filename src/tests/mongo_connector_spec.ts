@@ -73,12 +73,13 @@ describe('connector', () => {
 
     MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
 
-    const connector = new MongoConnector(url, startedSpy);
+    const connector = new MongoConnector(url);
+    connector.connect(startedSpy);
     assert.equal(connector.db, db);
     assert(startedSpy.calledOnce);
   });
 
-  it('will create a new collection', () => {
+  it('will create a new collection', async () => {
 
     //assert()
     const url = '';
@@ -90,6 +91,7 @@ describe('connector', () => {
 
     const connector = new MongoConnector(url);
     connector.connect();
+    console.log(connector.db)
     assert.equal(connector.db, db);
 
     // get a new collection

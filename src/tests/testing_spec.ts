@@ -36,6 +36,16 @@ describe('Testing Helpers', () => {
   });
 
   describe('withContext', () => {
+    it ('throws error when no initContext is specified', async () => {
+      let message = '';
+      try {
+        await withContext(async (context) => {});
+      } catch (ex)  {
+        message = ex.message;
+      } 
+      assert.equal(message, 'No initContext provided, please pass as a parameter or use global config');
+    });
+
     it('initializes context with connection, executes tests and cleans up afterwards', async function () {
       function initContext(conn: any) {
         return {
