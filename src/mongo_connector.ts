@@ -9,12 +9,12 @@ export default class MongoConnector {
   }
 
   connect(started?: Function) {
-    return new Promise((error, resolve) => {
+    return new Promise((resolve, error) => {
       const that = this;
       MongoClient.connect(this.mongoUrl, function (err, db) {
         if (err) {
-          error(err);
-          return console.dir(err);
+          console.log('Connection Error: ' + err);
+          return;
         }
         console.log('Connected to MongoDB at ' + that.mongoUrl);
         that.db = db;
@@ -22,10 +22,18 @@ export default class MongoConnector {
         if (started) {
           started();
         }
-
-        resolve(this);
+        resolve(db);
       });
     })
+  }
+
+  async disconnect() {
+    await this.db.close();
+  }
+
+  async dispose() {
+    await this.db.dropDatabase();
+    await this.disconnect();
   }
 
   collection<T>(name: string): Collection<T> {

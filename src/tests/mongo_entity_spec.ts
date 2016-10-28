@@ -5,7 +5,7 @@ import * as proxyquire from 'proxyquire';
 import { MongoClient, Db } from 'mongodb';
 import { config, getConnector, disposeDb, withEntity, itWithEntity as ite } from '../testing';
 
-import Entity from '../mongo_entity';
+import Entity, { LruCacheWrapper } from '../mongo_entity';
 import * as lru from 'lru-cache';
 
 const host = process.env.MONGODB_HOST || '127.0.0.1';
@@ -67,6 +67,24 @@ describe('entity', () => {
   });
 
   describe('findOneCachedById', () => {
+    ite('returns an item even when it was not previously found, but it wont search twice', async (entity) => {
+      const findSpy = sinon.spy(entity.collection, 'findOne');
+      let result = await entity.findOneCachedById('1');
+      assert.equal(result, null);
+      sinon.assert.calledOnce(findSpy);
+      result = await entity.findOneCachedById('1');
+      assert.equal(result, null);
+      sinon.assert.calledOnce(findSpy);
+
+      // insrt given element
+      const element = {_id: '1' };
+      await entity.insertOne(element);
+      result = await entity.findOneCachedById('1');
+      assert.deepEqual(result, element);
+      sinon.assert.calledTwice(findSpy);
+
+    });
+
     ite('can find and cache results of finding a single item', async (entity) => {
       const find = sinon.spy(entity.collection, 'findOne');
 
@@ -320,7 +338,7 @@ describe('entity', () => {
           (name: string) => {
             return entity.collection.findOne({ name });
           }, {
-            cacheMap: 'lru',
+            cacheMap: new LruCacheWrapper(2),
             clearOnInsert: true,
             clearOnUpdate: true,
             selectorKeyFn: (a: any) => a.name
@@ -358,10 +376,9 @@ describe('entity', () => {
 
         // test updates
         spy.reset();
-        entity.insertOne({ _id: 4, name: 'D' });
 
         // B should be out of the cache after update so it will need to be re-requested
-        await entity.findOneCached(loader, 'B');
+        await entity.findOneCached(loader, 'C');
         sinon.assert.calledOnce(spy);
       });
     })

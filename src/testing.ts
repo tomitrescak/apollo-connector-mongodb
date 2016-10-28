@@ -6,21 +6,25 @@ let name = '';
 let host = '127.0.0.1';
 let port = '27017';
 let disposeTimeout = 200;
-let timeoutId: number = null;
+let disconnectTimeoutId: number = null;
+let serverTimeoutId: number = null;
 let initContext: (conn: any) => any = null;
+let testServer: ITestServer;
 
 export interface ITestingOptions {
   mongoHost?: string;
   mongoPort?: string;
   mongoDisposeTimeout?: number;
   initContext?: (conn: any) => any;
+  testServer?: ITestServer;
 }
 
-export function config({mongoHost, mongoPort, mongoDisposeTimeout, initContext: ic}: ITestingOptions) {
+export function config({mongoHost, mongoPort, mongoDisposeTimeout, initContext: ic, testServer: ts}: ITestingOptions) {
   host = mongoHost || host;
   port = mongoPort || port;
   disposeTimeout = mongoDisposeTimeout || disposeTimeout;
-  initContext = ic;
+  initContext = ic || initContext;
+  testServer = ts || testServer;
 }
 
 export async function getDb() {
@@ -51,8 +55,8 @@ export interface TestOptions {
 export async function withEntity(test: (...entity: any[]) => any, options?: TestOptions): Promise<any> {
 
   // stop disposal
-  if (timeoutId != null) {
-    clearTimeout(timeoutId);
+  if (disconnectTimeoutId != null) {
+    clearTimeout(disconnectTimeoutId);
   }
 
   const connector: any = await getConnector();
@@ -112,8 +116,8 @@ const fakeConnector = {
 
 export async function withContext(test: (context: any) => any, initContextFn?: (conn: any) => any, disconnected = false): Promise<any> {
   // stop disposal
-  if (timeoutId != null) {
-    clearTimeout(timeoutId);
+  if (disconnectTimeoutId != null) {
+    clearTimeout(disconnectTimeoutId);
   }
 
   const connector: any = disconnected ? fakeConnector : await getConnector();
@@ -148,6 +152,60 @@ export function itWithContext(name: string, func: (context: any) => void, initCo
   });
 }
 
+export interface ITestServer {
+  started: boolean;
+  context: any;
+  startTest(): any;
+  stopTest(): any;
+}
+
+export async function withServer(test: (server: ITestServer) => any, server?: ITestServer): Promise<any> {
+  // stop disposal
+  if (serverTimeoutId != null) {
+    clearTimeout(serverTimeoutId);
+  }
+
+  if (server) {
+    console.log('Using local server');
+    testServer = server;
+  } else { 
+    console.log('Using global server');
+    server = testServer;
+  }
+  
+
+  if (!server) {
+    throw new Error('No server provided, please pass as a parameter or use global config');
+  }
+
+  if (!server.started) {
+    await server.startTest();
+  }
+
+  // execute test
+  try {
+    await test(server);
+  } catch (ex) {
+    throw ex;
+  } finally {
+    // find all Entities in context and clean up afterwards
+    for (let key of Object.keys(server.context)) {
+      if (server.context[key] && server.context[key].dispose) {
+        await server.context[key].dispose({}, true);
+      }
+    }
+    // start dispose
+    disposeServer();
+  }
+}
+
+export function itWithServer(name: string, func: (context: any) => void, server?: ITestServer) {
+  it (name, async function() {
+    await withServer(async (context) => { await func(context); }, server);
+  });
+}
+
+
 export async function getConnector() {
   let myDb = await getDb();
   return {
@@ -167,11 +225,26 @@ async function dropDatabase() {
   }
 }
 
+export function stopServer() {
+  if (testServer) {
+    console.log('Stopping test server');
+    testServer.stopTest();
+  }
+}
+
 export function disposeDb(immediate = false) {
   if (immediate) {
     dropDatabase();
   }
   // we let other tests to pickup this connection
-  timeoutId = setTimeout(dropDatabase, disposeTimeout);
+  disconnectTimeoutId = setTimeout(dropDatabase, disposeTimeout);
+}
+
+export async function disposeServer(immediate = false) {
+  if (immediate) {
+    stopServer();
+  }
+  // we let other tests to pickup this connection
+  serverTimeoutId = setTimeout(stopServer, disposeTimeout);
 }
 

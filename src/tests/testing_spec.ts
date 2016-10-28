@@ -1,6 +1,6 @@
 import * as sinon from 'sinon';
 import MongoEntity from '../mongo_entity';
-import { withContext, withEntity, config, itWithContext, itWithEntity } from '../testing';
+import { withContext, withEntity, withServer, config, itWithContext, itWithEntity, itWithServer, disposeServer } from '../testing';
 import * as assert from 'power-assert';
 import * as proxyquire from 'proxyquire';
 
@@ -17,7 +17,7 @@ describe('Testing Helpers', () => {
           deleteSpy = sinon.spy(entity, 'deleteMany');
           throw new Error('Error');
         });
-      } catch(ex) { /**/ }
+      } catch (ex) { /**/ }
       sinon.assert.calledOnce(deleteSpy);
     });
 
@@ -31,18 +31,18 @@ describe('Testing Helpers', () => {
       await withEntity(async (one, two) => {
         assert.equal(one.collection.collectionName, 'One');
         assert.equal(two.collection.collectionName, 'Two');
-      }, { entities: [{ name: 'One' }, { name: 'Two'}] });
+      }, { entities: [{ name: 'One' }, { name: 'Two' }] });
     });
   });
 
   describe('withContext', () => {
-    it ('throws error when no initContext is specified', async () => {
+    it('throws error when no initContext is specified', async () => {
       let message = '';
       try {
-        await withContext(async (context) => {});
-      } catch (ex)  {
+        await withContext(async (context) => { });
+      } catch (ex) {
         message = ex.message;
-      } 
+      }
       assert.equal(message, 'No initContext provided, please pass as a parameter or use global config');
     });
 
@@ -87,9 +87,7 @@ describe('Testing Helpers', () => {
         assert.equal(ex.message, 'Error');
       }
 
-      sinon
-        .assert
-        .calledOnce(deleteSpy);
+      sinon.assert.calledOnce(deleteSpy);
     });
 
     it('can run from the globally declared contextFunction', async () => {
@@ -100,9 +98,7 @@ describe('Testing Helpers', () => {
 
       await withContext(() => { });
 
-      sinon
-        .assert
-        .calledOnce(initContext);
+      sinon.assert.calledOnce(initContext);
     });
 
     it('can run in the disconnected state', async () => {
@@ -122,17 +118,70 @@ describe('Testing Helpers', () => {
     });
   });
 
+  describe('withServer', () => {
+    let server: any;
+
+    beforeEach(() => {
+      server = {
+        startTest: sinon.stub(),
+        stopTest: sinon.stub(),
+        context: [{ dispose: sinon.stub() }]
+      }
+    })
+
+    it('throws error when no server is specified', async () => {
+      let message = '';
+      try {
+        await withServer(async (context) => { });
+      } catch (ex) {
+        message = ex.message;
+      }
+      assert.equal(message, 'No server provided, please pass as a parameter or use global config');
+    });
+
+    it('starts a new server when server is not started', async () => {
+      await withServer((context) => { }, server);
+      sinon.assert.calledOnce(server.startTest);
+    });
+
+    it('cleans up resources even with exception', async() => {
+      try {
+        await withServer((context) => { throw '' }, server);
+      } catch (ex) { /**/ }
+      sinon.assert.calledOnce(server.context[0].dispose);
+    });
+
+    it('stops server', async function() {
+      await withServer((server) => {
+        disposeServer(true);
+
+        sinon.assert.calledOnce(<any> server.stopTest);
+      }, server);
+    });
+  });
+
   describe('Mocha helpers', () => {
-    describe ('itWithContext', () => {
+    describe('itWithContext', () => {
       itWithContext('runs', (context: any) => {
         assert(true);
       })
     });
 
-    describe ('itWithEntity', () => {
+    describe('itWithEntity', () => {
       itWithEntity('runs', (context: any) => {
         assert(true);
-      })
+      });
+    });
+
+    describe('itWithServer', () => {
+      const server: any = {
+        startTest: sinon.stub(),
+        context: []
+      }
+  
+      itWithServer('runs', (context: any) => {
+        assert(true);
+      }, server);
     });
   })
 
@@ -156,5 +205,7 @@ describe('Testing Helpers', () => {
 
     }));
   });
+
+
 
 });

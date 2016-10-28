@@ -54,14 +54,14 @@ describe('connector', () => {
     const successSpy = sinon.spy();
 
     // spy on console.dir
-    const dirStub = this.stub(console, 'dir');
+    const dirStub = this.stub(console, 'log');
     MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
 
     const connector = new MongoConnector(url);
     connector.connect();
     assert.equal(connector.db, undefined);
     sinon.assert.calledOnce(dirStub);
-    sinon.assert.calledWith(dirStub, 'error');
+    sinon.assert.calledWith(dirStub, 'Connection Error: error');
   }));
 
   it('will initialise and calls back', () => {
@@ -99,5 +99,18 @@ describe('connector', () => {
     const col = connector.collection(collectionName);
 
     assert(db.collection.calledWith(collectionName));
+  });
+
+  it('can dispose database', async () => {
+    const connector = new MongoConnector();
+    connector.db = {
+      dropDatabase: sinon.stub(),
+      close: sinon.stub()
+    };
+
+    await connector.dispose();
+
+    sinon.assert.calledOnce(connector.db.dropDatabase); 
+    sinon.assert.calledOnce(connector.db.close);
   });
 });

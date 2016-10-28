@@ -22,17 +22,17 @@ export interface Options<K, V> {
 export class LruCacheWrapper<K, V> {
   cache: any;
 
-  constructor() {
+  constructor(cacheSize = 500) {
     const lru = require('lru-cache');
-    this.cache = lru({max: 2});
+    this.cache = lru({ max: cacheSize });
   }
 
   clear() { this.cache.reset() }
   get(key: K) { return this.cache.get(key); }
   set(key: K, value: V) { return this.cache.set(key, value); }
-  delete(key: K) { 
+  delete(key: K) {
     if (this.cache.has(key)) {
-      this.cache.del(key); 
+      this.cache.del(key);
       return true;
     }
     return false;
@@ -40,7 +40,7 @@ export class LruCacheWrapper<K, V> {
 }
 
 interface ILoader<T> {
-  selectorKeyFn (key: any): any;
+  selectorKeyFn(key: any): any;
   dataLoader: IDataLoader<any, T[]>
 }
 
@@ -53,7 +53,7 @@ export default class MongoEntity<T> {
   private _collection: Collection<T>;
   private _singleLoader: IDataLoader<any, T>;
   private _multiLoader: IDataLoader<any, T[]>;
-  private _insertLoaders: IDataLoader<any, T>[];
+  private _insertLoaders: ILoader<T>[];
   private _updateLoaders: ILoader<T>[];
   public static DefaultCache: any;
   private _cache: 'lru' | any;
@@ -83,13 +83,20 @@ export default class MongoEntity<T> {
           u.dataLoader.clearAll();
         }
       });
-      
+
     }
   }
 
-  clearInsertCaches(selector: Object) {
+  clearInsertCaches(selector: any) {
     if (this._insertLoaders) {
-      this._insertLoaders.forEach(i => i.clearAll());
+      this._insertLoaders.forEach(u => {
+        const key = u.selectorKeyFn && u.selectorKeyFn(selector);
+        if (key) {
+          u.dataLoader.clear(key);
+        } else {
+          u.dataLoader.clearAll();
+        }
+      });
     }
   }
 
@@ -130,11 +137,12 @@ export default class MongoEntity<T> {
   }
 
   async findOneCached(loader: IDataLoader<string, T>, key: string, selector?: Object): Promise<T> {
+    const result = await loader.load(key);
     if (selector) {
-      const result = await loader.load(key);
+      // do not cache null values, always try to reload
       return this.filter(result, selector);
     } else {
-      return loader.load(key);
+      return result;
     }
   }
 
@@ -142,7 +150,7 @@ export default class MongoEntity<T> {
     if (!this._singleLoader) {
       this._singleLoader = this.createLoader((loadId) => {
         return this.collection.findOne({ _id: loadId });
-      }, this.addCacheToOptions({ clearOnUpdate: true, selectorKeyFn: (a: any) => a._id }));
+      }, this.addCacheToOptions({ clearOnUpdate: true, clearOnInsert: true, selectorKeyFn: (a: any) => a._id }));
     }
     return this.findOneCached(this._singleLoader, id, selector);
   }
@@ -154,7 +162,7 @@ export default class MongoEntity<T> {
     } else {
       return loader.load(key);
     }
-  } 
+  }
 
   async findAllCached(selector?: Object): Promise<T[]> {
     if (!this._multiLoader) {
@@ -168,9 +176,10 @@ export default class MongoEntity<T> {
   addCacheToOptions(options: any) {
     if (options.cacheMap) {
       return options;
-    }
-    if (this._cache) {
+    } else if (this._cache) {
       options.cacheMap = this._cache;
+    } else {
+      options.cacheMap = 'lru';
     }
     return options;
   }
@@ -226,7 +235,10 @@ export default class MongoEntity<T> {
         if (!this._insertLoaders) {
           this._insertLoaders = [];
         }
-        this._insertLoaders.push(loader);
+        this._insertLoaders.push({
+          dataLoader: loader,
+          selectorKeyFn: options.selectorKeyFn
+        });
       }
 
       if (options.clearOnUpdate) {
