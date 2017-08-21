@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc",
     "test": "TS_NODE_FAST=true mocha --require ./setup.js --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail",
-    "coverage": "NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
-    "coveralls": "NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
+    "coverage": "TS_NODE_FAST=true NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
+    "coveralls": "TS_NODE_FAST=true NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
   "typings": "./dist/index.d.ts",
   "keywords": [
