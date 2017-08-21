@@ -9,7 +9,7 @@ module.exports = function (w) {
       'src/tests/*.ts'
     ],
     compilers: {
-      "**/*.ts*": w.compilers.typeScript({module: "commonjs", target: "es6"})
+      "**/*.ts*": w.compilers.typeScript({module: "commonjs", target: "es5"})
     },
     env: {
       type: "node"
@@ -42,7 +42,7 @@ module.exports = function (w) {
       sinon.testCase = sinonTest.configureTestCase(sinon);
     },
     teardown: function (wallaby) {
-
+      
     }
     // preprocessors: {
     //   "**/*.js*": file => require("babel-core").transform(file.content.replace('(\'assert\')', '(\'power-assert\')'), {

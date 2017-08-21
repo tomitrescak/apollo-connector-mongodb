@@ -118,7 +118,7 @@ describe('entity', () => {
       let bar = await entity.findOneCachedById('2');
 
       const selector = { _id: '1' };
-      entity.updateOne(selector, { $set: { file: 'boo' } });
+      await entity.updateOne(selector, { $set: { file: 'boo' } });
       assert(cacheSpy.calledWith(selector))
 
       // check update 
