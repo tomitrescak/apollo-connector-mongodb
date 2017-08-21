@@ -5,11 +5,10 @@ let db: Db = null;
 let name = '';
 let host = '127.0.0.1';
 let port = '27017';
-let disposeTimeout = 200;
-let disconnectTimeoutId: number = null;
-let serverTimeoutId: number = null;
 let initContext: (conn: any) => any = null;
 let testServer: ITestServer;
+let verbose: boolean;
+let dbName = () => "tmp" + Math.floor(Math.random() * 10000);
 
 export interface ITestingOptions {
   mongoHost?: string;
@@ -17,26 +16,32 @@ export interface ITestingOptions {
   mongoDisposeTimeout?: number;
   initContext?: (conn: any) => any;
   testServer?: ITestServer;
+  verbose?: boolean;
+  testDbName?: () => string;
 }
 
-export function config({mongoHost, mongoPort, mongoDisposeTimeout, initContext: ic, testServer: ts}: ITestingOptions) {
+export function config({mongoHost, testDbName, mongoPort, verbose, initContext: ic, testServer: ts}: ITestingOptions) {
   host = mongoHost || host;
   port = mongoPort || port;
-  disposeTimeout = mongoDisposeTimeout || disposeTimeout;
   initContext = ic || initContext;
   testServer = ts || testServer;
+  verbose = verbose;
+  dbName = testDbName || dbName;
+
 }
 
 export async function getDb() {
   if (db) {
     return db;
   }
-  name = "tmp" + Math.floor(Math.random() * 10000);
+  name = dbName();
 
-  console.log('New connection to ' + name);
+  if (verbose) {
+    console.log('New connection to ' + name);
+  }
 
   db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
-  global.db = db;
+  (global as any).db = db;
 
   return db;
 }
@@ -53,12 +58,6 @@ export interface TestOptions {
 
 
 export async function withEntity(test: (...entity: any[]) => any, options?: TestOptions): Promise<any> {
-
-  // stop disposal
-  if (disconnectTimeoutId != null) {
-    clearTimeout(disconnectTimeoutId);
-  }
-
   const connector: any = await getConnector();
 
   let entities: any[] = [];
@@ -93,9 +92,6 @@ export async function withEntity(test: (...entity: any[]) => any, options?: Test
   } finally {
     // clean up
     await entities.forEach(e => e.deleteMany({}));
-
-    // start dispose
-    disposeDb();
   }
 }
 
@@ -115,11 +111,6 @@ const fakeConnector = {
 }
 
 export async function withContext(test: (context: any) => any, initContextFn?: (conn: any) => any, disconnected = false): Promise<any> {
-  // stop disposal
-  if (disconnectTimeoutId != null) {
-    clearTimeout(disconnectTimeoutId);
-  }
-
   const connector: any = disconnected ? fakeConnector : await getConnector();
   initContext = initContextFn || initContext;
 
@@ -141,8 +132,6 @@ export async function withContext(test: (context: any) => any, initContextFn?: (
         await context[key].dispose({}, true);
       }
     }
-    // start dispose
-    disposeDb();
   }
 }
 
@@ -160,16 +149,11 @@ export interface ITestServer {
 }
 
 export async function withServer(test: (server: ITestServer) => any, server?: ITestServer): Promise<any> {
-  // stop disposal
-  if (serverTimeoutId != null) {
-    clearTimeout(serverTimeoutId);
-  }
-
   if (server) {
-    console.log('Using local server');
+    // console.log('Using local server');
     testServer = server;
   } else { 
-    console.log('Using global server');
+    // console.log('Using global server');
     server = testServer;
   }
   
@@ -194,8 +178,6 @@ export async function withServer(test: (server: ITestServer) => any, server?: IT
         await server.context[key].dispose({}, true);
       }
     }
-    // start dispose
-    disposeServer();
   }
 }
 
@@ -215,36 +197,22 @@ export async function getConnector() {
   }
 }
 
-async function dropDatabase() {
+export async function stopDatabase() {
   let myDb = db;
   db = null;
   if (myDb) {
-    console.log('tearing down db');
     await myDb.dropDatabase();
     await myDb.close(); 
   }
 }
 
 export function stopServer() {
-  if (testServer) {
+  if (!testServer) {
+    console.error("No server to stop!")
+  }
     console.log('Stopping test server');
     testServer.stopTest();
-  }
+  
 }
 
-export function disposeDb(immediate = false) {
-  if (immediate) {
-    dropDatabase();
-  }
-  // we let other tests to pickup this connection
-  disconnectTimeoutId = setTimeout(dropDatabase, disposeTimeout);
-}
-
-export async function disposeServer(immediate = false) {
-  if (immediate) {
-    stopServer();
-  }
-  // we let other tests to pickup this connection
-  serverTimeoutId = setTimeout(stopServer, disposeTimeout);
-}
 

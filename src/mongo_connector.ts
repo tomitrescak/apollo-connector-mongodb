@@ -13,10 +13,10 @@ export default class MongoConnector {
       const that = this;
       MongoClient.connect(this.mongoUrl, function (err, db) {
         if (err) {
-          console.log('Connection Error: ' + err);
+          console.log(`Connection Error to ${that.mongoUrl} ` + err);
           return;
         }
-        console.log('Connected to MongoDB at ' + that.mongoUrl);
+        // console.log('Connected to MongoDB at ' + that.mongoUrl);
         that.db = db;
 
         if (started) {

@@ -28,7 +28,7 @@ export class LruCacheWrapper<K, V> {
   }
 
   clear() { this.cache.reset() }
-  get(key: K) { return this.cache.get(key); }
+  get(key: K) { return this.cache.get(key) || undefined; }
   set(key: K, value: V) { return this.cache.set(key, value); }
   delete(key: K) {
     if (this.cache.has(key)) {
@@ -76,7 +76,7 @@ export default class MongoEntity<T> {
   clearUpdateCaches(selector: any) {
     if (this._updateLoaders) {
       this._updateLoaders.forEach(u => {
-        const key = u.selectorKeyFn(selector);
+        const key = u.selectorKeyFn && u.selectorKeyFn(selector);
         if (key) {
           u.dataLoader.clear(selector._id);
         } else {
@@ -138,7 +138,7 @@ export default class MongoEntity<T> {
 
   async findOneCached(loader: IDataLoader<string, T>, key: string, selector?: Object): Promise<T> {
     const result = await loader.load(key);
-    if (selector) {
+    if (result && selector) {
       // do not cache null values, always try to reload
       return this.filter(result, selector);
     } else {
@@ -168,7 +168,7 @@ export default class MongoEntity<T> {
     if (!this._multiLoader) {
       this._multiLoader = this.createLoader(
         () => this.collection.find().toArray(),
-        this.addCacheToOptions({ clearOnInsert: true }));
+        this.addCacheToOptions({ clearOnInsert: true, clearOnUpdate: true, selectorKeyFn: (a: any): any => null }));
     }
     return this.findManyCached(this._multiLoader, 'ALL', selector);
   }

@@ -42,11 +42,7 @@ module.exports = function (w) {
       sinon.testCase = sinonTest.configureTestCase(sinon);
     },
     teardown: function (wallaby) {
-      if (db) {
-        console.log('tearing down db');
-        db.dropDatabase();
-        db.close();
-      }
+
     }
     // preprocessors: {
     //   "**/*.js*": file => require("babel-core").transform(file.content.replace('(\'assert\')', '(\'power-assert\')'), {

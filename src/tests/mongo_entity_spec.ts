@@ -3,7 +3,7 @@ import * as sinon from 'sinon';
 import * as proxyquire from 'proxyquire';
 
 import { MongoClient, Db } from 'mongodb';
-import { config, getConnector, disposeDb, withEntity, itWithEntity as ite } from '../testing';
+import { config, getConnector, withEntity, itWithEntity as ite } from '../testing';
 
 import Entity, { LruCacheWrapper } from '../mongo_entity';
 import * as lru from 'lru-cache';
@@ -155,6 +155,15 @@ describe('entity', () => {
         let result = await entity.findOneCachedById('00', { b: 1 });
         assert.deepEqual(result, { b: '2' });
     });
+
+    ite('findOneCached returns null if entity does not exists', async (entity) => {
+        // first we test if DB is called every time
+        let result = await entity.findOneCachedById('0');
+        assert.deepEqual(result, null);
+
+        result = await entity.findOneCachedById('0', { field: 1 });
+        assert.deepEqual(result, null);
+    });
   });
 
   describe('updates', () => {
@@ -301,12 +310,12 @@ describe('entity', () => {
   });
 
   describe('dispose', () => {
-    it('deletes all records', sinon.test(function () {
+    it('deletes all records', function () {
       const entity = new Entity(null, 'name');
-      const stub = this.stub(entity, 'deleteMany');
+      const stub = sinon.stub(entity, 'deleteMany');
       entity.dispose();
       sinon.assert.calledWith(stub, {}, true);
-    }));
+    });
   });
 
   describe('testing', () => {
@@ -385,7 +394,7 @@ describe('entity', () => {
   });
 
   describe('LruCacheWrapper', () => {
-    it('maps lru-cache functions', sinon.test(function () {
+    it('maps lru-cache functions', function () {
       function cacheStub() {
         return {
           get: sinon.stub(),
@@ -412,7 +421,7 @@ describe('entity', () => {
       cacheWrapper.cache.has.returns(false);
       const negativeResult = cacheWrapper.delete('1');
       assert.equal(negativeResult, false);
-    }));
+    });
 
 
 

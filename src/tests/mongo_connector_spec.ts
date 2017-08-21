@@ -10,15 +10,14 @@ const connectStub = sinon.spy();
 
 const MongoStub: any = {
   MongoClient: {
-    connect: () => { }
+    connect: () => {}
   }
-}
-const MongoConnector = proxyquire('../mongo_connector', { 'mongodb': MongoStub }).default;
- 
-describe('connector', () => {
+};
+const MongoConnector = proxyquire('../mongo_connector', { mongodb: MongoStub }).default;
 
+describe('connector', () => {
   // before(async function () {
-    
+
   //   // delete other
   //   const db = await getDb();
   //   const dbs = await db.admin().listDatabases();
@@ -31,7 +30,6 @@ describe('connector', () => {
   //     }
   //   })
   // });
-
 
   it('will initialise url', () => {
     //console.log(connectStub.calledOnce);
@@ -47,25 +45,26 @@ describe('connector', () => {
     assert(spy.calledOnce);
   });
 
-  it('will not initialise db on error and logs error', sinon.test(function () {
-
+  it('will not initialise db on error and logs error', function() {
     //assert()
     const url = 'mongodb://url';
     const successSpy = sinon.spy();
-
     // spy on console.dir
-    const dirStub = this.stub(console, 'log');
-    MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
+    const dirStub = sinon.stub(console, 'log');
+    try {
+      MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
 
-    const connector = new MongoConnector(url);
-    connector.connect();
-    assert.equal(connector.db, undefined);
-    sinon.assert.calledOnce(dirStub);
-    sinon.assert.calledWith(dirStub, 'Connection Error: error');
-  }));
+      const connector = new MongoConnector(url);
+      connector.connect();
+      assert.equal(connector.db, undefined);
+      // sinon.assert.calledOnce(dirStub);
+      sinon.assert.calledWith(dirStub, 'Connection Error to mongodb://url error');
+    } finally {
+      dirStub.restore();
+    }
+  });
 
   it('will initialise and calls back', () => {
-
     //assert()
     const url = 'mongodb://url';
     const db = {};
@@ -80,7 +79,6 @@ describe('connector', () => {
   });
 
   it('will create a new collection', async () => {
-
     //assert()
     const url = '';
     const db = {
@@ -91,7 +89,6 @@ describe('connector', () => {
 
     const connector = new MongoConnector(url);
     connector.connect();
-    console.log(connector.db)
     assert.equal(connector.db, db);
 
     // get a new collection
@@ -110,7 +107,7 @@ describe('connector', () => {
 
     await connector.dispose();
 
-    sinon.assert.calledOnce(connector.db.dropDatabase); 
+    sinon.assert.calledOnce(connector.db.dropDatabase);
     sinon.assert.calledOnce(connector.db.close);
   });
 });
