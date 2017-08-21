@@ -1,8 +1,13 @@
 import MongoConnector from './mongo_connector';
 import * as Random from 'meteor-random';
-import { IDataLoader } from 'dataloader';
 
 const DataLoader = require('dataloader');
+
+export interface IDataLoader<S, T> {
+  clear(id: string): void;
+  clearAll(): void;
+  load(key: string);
+}
 
 import {
   Collection, FindOneOptions, Cursor, ReplaceOneOptions, WriteOpResult,
