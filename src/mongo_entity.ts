@@ -83,7 +83,7 @@ export default class MongoEntity<T> {
       this._updateLoaders.forEach(u => {
         const key = u.selectorKeyFn && u.selectorKeyFn(selector);
         if (key) {
-          u.dataLoader.clear(selector._id);
+          u.dataLoader.clear(key);
         } else {
           u.dataLoader.clearAll();
         }
@@ -223,7 +223,7 @@ export default class MongoEntity<T> {
     return this.collection.updateMany(selector, update, options);
   }
 
-  createLoader(selectorFunction: (key: any) => Promise<any>, options?: Options<any, T | T[]>) {
+  createLoader(selectorFunction: (key: any) => Promise<T>, options?: Options<any, T | T[]>) {
     const opts: any = options;
 
     // replace caches

@@ -177,27 +177,27 @@ describe('Testing Helpers', () => {
     });
   })
 
-  describe('disposeDb', () => {
-    // it('closes connection', async function () {
-    //   const dbSpy = {
-    //     dropDatabase: sinon.spy(),
-    //     close: sinon.spy()
-    //   };
-    //   const MongoStub = {
-    //     MongoClient: {
-    //       connect: sinon.stub().returns(dbSpy)
-    //     } 
-    //   }
-    //   const { getDb, disposeDb } = proxyquire('../testing', { 'mongodb': MongoStub });
+  // describe('disposeDb', () => {
+  //   it('closes connection', async function () {
+  //     const dbSpy = {
+  //       dropDatabase: sinon.spy(),
+  //       close: sinon.spy()
+  //     };
+  //     const MongoStub = {
+  //       MongoClient: {
+  //         connect: sinon.stub().returns(dbSpy)
+  //       } 
+  //     }
+  //     const { getDb, disposeDb } = proxyquire('../testing', { 'mongodb': MongoStub });
       
-    //   await getDb();
-    //   await stopDatabase();
+  //     await getDb();
+  //     await stopDatabase();
 
-    //   sinon.assert.calledOnce(dbSpy.dropDatabase);
-    //   sinon.assert.calledOnce(dbSpy.close);
+  //     sinon.assert.calledOnce(dbSpy.dropDatabase);
+  //     sinon.assert.calledOnce(dbSpy.close);
 
-    // });
-  });
+  //   });
+  // });
 
 
 

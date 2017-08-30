@@ -41,6 +41,11 @@ export async function getDb() {
   }
 
   db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
+
+  // to make sure we are working with a clear database, we drop it and reconnect
+  await db.dropDatabase();
+  db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
+
   (global as any).db = db;
 
   return db;
