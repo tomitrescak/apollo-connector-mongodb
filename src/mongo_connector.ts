@@ -1,42 +1,38 @@
 import { MongoClient, Db, Collection } from 'mongodb';
 
-export default class MongoConnector {
-  private mongoUrl: string;
-  private db: Db;
+export class MongoConnector {
+  db: Db;
+  client: MongoClient;
 
-  constructor(url: string) {
-    this.mongoUrl = url;
-  }
+  constructor(public url: string, public dbName: string) {}
 
-  connect(started?: Function) {
-    return new Promise((resolve, error) => {
-      const that = this;
-      MongoClient.connect(this.mongoUrl, function (err, db) {
-        if (err) {
-          console.log(`Connection Error to ${that.mongoUrl} ` + err);
-          return;
-        }
-        // console.log('Connected to MongoDB at ' + that.mongoUrl);
-        that.db = db;
+  async connect(started?: Function) {
+    try {
+      this.client = await MongoClient.connect(this.url);
+      this.db = await this.client.db(this.dbName);
 
-        if (started) {
-          started();
-        }
-        resolve(db);
-      });
-    })
+      if (started) {
+        started();
+      }
+    } catch (ex) {
+      console.log(`Connection Error to ${this.url} / ${this.dbName}: ${ex.message}`);
+      throw new Error(`Connection Error to ${this.url}/${this.dbName}`);
+    }
   }
 
   async disconnect() {
-    await this.db.close();
+    await this.client.close();
   }
 
   async dispose() {
+    console.log(this.client.close)
     await this.db.dropDatabase();
-    await this.disconnect();
+    await this.client.close();
   }
 
   collection<T>(name: string): Collection<T> {
     return this.db.collection(name);
   }
 }
+
+export default MongoConnector;

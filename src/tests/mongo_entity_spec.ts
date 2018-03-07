@@ -40,7 +40,14 @@ describe('entity', () => {
   describe('find', () => {
     it('can find a multiple record', async () => {
       await withEntity((entity) => {
-        const find = sinon.spy(entity.collection, 'find');
+        const skipStub = sinon.spy();
+        const limitStub = sinon.spy();
+
+        const res = {
+          skip() { skipStub.apply(arguments); return res; },
+          limit: sinon.stub()
+        }
+        const find = sinon.stub(entity.collection, 'find').returns(res);
         const selector = {};
         const fields = {};
         const skip = 1;
@@ -48,7 +55,10 @@ describe('entity', () => {
         const timeout = 1000;
 
         entity.find(selector, fields, skip, limit, timeout);
-        assert(find.calledWithExactly(selector, fields, skip, limit, timeout));
+        skipStub.calledWithExactly(skip);
+        res.limit.calledWithExactly(456);
+
+        assert(find.calledWithExactly(selector, fields));
       });
     });
   });
@@ -271,7 +281,7 @@ describe('entity', () => {
         entity.insertOne({ _id: '1' });
         let result = await entity.findAllCached();
         // insert document
-        entity.insertOne({ _id: '2' });
+        await entity.insertOne({ _id: '2' });
         result = await entity.findAllCached();
 
         assert(find.calledTwice);

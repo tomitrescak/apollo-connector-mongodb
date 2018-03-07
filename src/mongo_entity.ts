@@ -133,8 +133,15 @@ export default class MongoEntity<T> {
     return result;
   }
 
-  find(selector: Object, fields?: Object, skip?: number, limit?: number, timeout?: number): Cursor<T> {
-    return this.collection.find(selector, fields, skip, limit, timeout);
+  find(selector: Object, fields?: Object, skip?: number, limit?: number, timeout?: number) {
+    if (skip && limit) {
+      return this.collection.find(selector, fields).skip(skip).limit(limit);
+    } else if (skip) {
+      return this.collection.find(selector, fields).skip(skip);
+    } else if (limit) {
+      return this.collection.find(selector, fields).limit(limit);
+    }
+    return this.collection.find(selector, fields);
   }
 
   findOne(selector: Object, options?: FindOneOptions): Promise<T> {
@@ -172,7 +179,7 @@ export default class MongoEntity<T> {
   async findAllCached(selector?: Object): Promise<T[]> {
     if (!this._multiLoader) {
       this._multiLoader = this.createLoader(
-        () => this.collection.find().toArray(),
+        () => this.collection.find().toArray() as any,
         this.addCacheToOptions({ clearOnInsert: true, clearOnUpdate: true, selectorKeyFn: (a: any): any => null }));
     }
     return this.findManyCached(this._multiLoader, 'ALL', selector);

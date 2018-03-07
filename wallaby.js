@@ -36,10 +36,10 @@ module.exports = function (w) {
     setup() {
       // configure sinon
       var sinon = require('sinon');
-      var sinonTest = require('sinon-test');
+      // var sinonTest = require('sinon-test');
 
-      sinon.test = sinonTest.configureTest(sinon);
-      sinon.testCase = sinonTest.configureTestCase(sinon);
+      // sinon.test = sinonTest.configureTest(sinon);
+      // sinon.testCase = sinonTest.configureTestCase(sinon);
     },
     teardown: function (wallaby) {
       

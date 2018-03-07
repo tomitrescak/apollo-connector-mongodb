@@ -4,16 +4,22 @@ import * as sinon from 'sinon';
 
 import { MongoClient } from 'mongodb';
 import { getDb } from '../testing';
+import { MongoConnector } from '../mongo_connector';
 
 // import proxied connector
-const connectStub = sinon.spy();
+const dbStub = sinon.stub();
 
 const MongoStub: any = {
   MongoClient: {
-    connect: () => {}
+    connect: () => ({
+      db: dbStub,
+      close: sinon.stub()
+    })
   }
 };
-const MongoConnector = proxyquire('../mongo_connector', { mongodb: MongoStub }).default;
+const MongoConnectorStub: typeof MongoConnector = proxyquire('../mongo_connector', {
+  mongodb: MongoStub
+}).MongoConnector;
 
 describe('connector', () => {
   // before(async function () {
@@ -31,49 +37,45 @@ describe('connector', () => {
   //   })
   // });
 
-  it('will initialise url', () => {
+  it('will initialise url', async () => {
     //console.log(connectStub.calledOnce);
     //assert()
     const url = 'mongodb://url';
-    const spy = sinon.spy();
 
-    MongoStub.MongoClient.connect = () => spy();
+    dbStub.reset();
 
-    const connector = new MongoConnector(url);
-    connector.connect();
-    assert.equal(connector.mongoUrl, url);
-    assert(spy.calledOnce);
+    const connector = new MongoConnectorStub(url, 'clara');
+    await connector.connect();
+    assert.equal(connector.url, url);
+    assert(dbStub.calledOnce);
   });
 
-  it('will not initialise db on error and logs error', function() {
+  it('will not initialise db on error and logs error', async function() {
     //assert()
     const url = 'mongodb://url';
     const successSpy = sinon.spy();
     // spy on console.dir
-    const dirStub = sinon.stub(console, 'log');
     try {
-      MongoStub.MongoClient.connect = (url: string, func: Function) => func('error');
-
-      const connector = new MongoConnector(url);
-      connector.connect();
+      const connector = new MongoConnector(url, 'clara');
+      await connector.connect();
       assert.equal(connector.db, undefined);
       // sinon.assert.calledOnce(dirStub);
-      sinon.assert.calledWith(dirStub, 'Connection Error to mongodb://url error');
-    } finally {
-      dirStub.restore();
-    }
+     
+    } catch (ex) {
+      assert.equal(ex.message, 'Connection Error to mongodb://url/clara');
+    } 
   });
 
-  it('will initialise and calls back', () => {
+  it('will initialise and calls back', async () => {
     //assert()
     const url = 'mongodb://url';
     const db = {};
     const startedSpy = sinon.spy();
 
-    MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
+    dbStub.returns(db);
 
-    const connector = new MongoConnector(url);
-    connector.connect(startedSpy);
+    const connector = new MongoConnectorStub(url, 'clara');
+    await connector.connect(startedSpy);
     assert.equal(connector.db, db);
     assert(startedSpy.calledOnce);
   });
@@ -85,10 +87,10 @@ describe('connector', () => {
       collection: sinon.spy()
     };
 
-    MongoStub.MongoClient.connect = (url: string, func: Function) => func(null, db);
+    dbStub.returns(db);
 
-    const connector = new MongoConnector(url);
-    connector.connect();
+    const connector = new MongoConnectorStub(url, 'clara');
+    await connector.connect();
     assert.equal(connector.db, db);
 
     // get a new collection
@@ -99,15 +101,17 @@ describe('connector', () => {
   });
 
   it('can dispose database', async () => {
-    const connector = new MongoConnector();
-    connector.db = {
-      dropDatabase: sinon.stub(),
-      close: sinon.stub()
-    };
+    const connector = new MongoConnectorStub(null, 'clara');
 
+    const db = {
+      dropDatabase: sinon.stub()
+    };
+    dbStub.returns(db);
+
+    await connector.connect();
     await connector.dispose();
 
-    sinon.assert.calledOnce(connector.db.dropDatabase);
-    sinon.assert.calledOnce(connector.db.close);
+    sinon.assert.calledOnce(connector.db.dropDatabase as sinon.SinonStub);
+    sinon.assert.calledOnce(connector.client.close as sinon.SinonStub);
   });
 });

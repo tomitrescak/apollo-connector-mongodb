@@ -1,14 +1,33 @@
 import { MongoClient, Db, Collection } from 'mongodb';
 import MongoEntity from './mongo_entity';
 
-let db: Db = null;
-let name = '';
-let host = '127.0.0.1';
-let port = '27017';
-let initContext: (conn: any) => any = null;
-let testServer: ITestServer;
-let verbose: boolean;
-let dbName = () => "tmp" + Math.floor(Math.random() * 10000);
+interface CustomGlobal {
+  __mongoConnectorConfig: TestConfig;
+}
+
+interface TestConfig {
+  db: Db;
+  name: string;
+  host: string;
+  port: string;
+  initContext: (conn: any) => any;
+  testServer: ITestServer;
+  verbose: boolean;
+  dbName: () => string;
+}
+
+let customGlobal: CustomGlobal = global as any;
+customGlobal.__mongoConnectorConfig = {
+  db: null,
+  name: '',
+  host: '127.0.0.1',
+  port: '27017',
+  initContext: null,
+  testServer: null,
+  verbose: false,
+  dbName: () => "tmp" + Math.floor(Math.random() * 10000)
+};
+let glob = customGlobal.__mongoConnectorConfig;
 
 export interface ITestingOptions {
   mongoHost?: string;
@@ -21,34 +40,36 @@ export interface ITestingOptions {
 }
 
 export function config({mongoHost, testDbName, mongoPort, verbose, initContext: ic, testServer: ts}: ITestingOptions) {
-  host = mongoHost || host;
-  port = mongoPort || port;
-  initContext = ic || initContext;
-  testServer = ts || testServer;
-  verbose = verbose;
-  dbName = testDbName || dbName;
+  glob.host = mongoHost || glob.host;
+  glob.port = mongoPort || glob.port;
+  glob.initContext = ic || glob.initContext;
+  glob.testServer = ts || glob.testServer;
+  glob.verbose = verbose;
+  glob.dbName = testDbName || glob.dbName;
 
 }
 
 export async function getDb() {
-  if (db) {
-    return db;
+  if (glob.db) {
+    return glob.db;
   }
-  name = dbName();
+  glob.name = glob.dbName();
 
-  if (verbose) {
-    console.log('New connection to ' + name);
+  if (glob.verbose) {
+    console.log('New connection to ' + glob.name);
   }
 
-  db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
+  let client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
+  glob.db = await client.db(glob.name)
 
   // to make sure we are working with a clear database, we drop it and reconnect
-  await db.dropDatabase();
-  db = await MongoClient.connect(`mongodb://${host}:${port}/${name}`);
+  await glob.db.dropDatabase();
+  client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
+  glob.db = await client.db(glob.name);
 
-  (global as any).db = db;
+  (global as any).db = glob.db;
 
-  return db;
+  return glob.db;
 }
 
 export interface TestOption<T> {
@@ -117,13 +138,13 @@ const fakeConnector = {
 
 export async function withContext(test: (context: any) => any, initContextFn?: (conn: any) => any, disconnected = false): Promise<any> {
   const connector: any = disconnected ? fakeConnector : await getConnector();
-  initContext = initContextFn || initContext;
+  glob.initContext = initContextFn || glob.initContext;
 
-  if (!initContext) {
+  if (!glob.initContext) {
     throw new Error('No initContext provided, please pass as a parameter or use global config');
   }
 
-  const context = initContext(connector);
+  const context = glob.initContext(connector);
 
   // execute test
   try {
@@ -156,10 +177,10 @@ export interface ITestServer {
 export async function withServer(test: (server: ITestServer) => any, server?: ITestServer): Promise<any> {
   if (server) {
     // console.log('Using local server');
-    testServer = server;
+    glob.testServer = server;
   } else { 
     // console.log('Using global server');
-    server = testServer;
+    server = glob.testServer;
   }
   
 
@@ -197,14 +218,14 @@ export async function getConnector() {
   let myDb = await getDb();
   return {
     collection(name: string) {
-      return db.collection(name);
+      return glob.db.collection(name);
     }
   }
 }
 
 export async function stopDatabase() {
-  let myDb = db;
-  db = null;
+  let myDb = glob.db;
+  glob.db = null;
   if (myDb) {
     await myDb.dropDatabase();
     await myDb.close(); 
@@ -212,11 +233,11 @@ export async function stopDatabase() {
 }
 
 export function stopServer() {
-  if (!testServer) {
+  if (!glob.testServer) {
     console.error("No server to stop!")
   }
     console.log('Stopping test server');
-    testServer.stopTest();
+    glob.testServer.stopTest();
   
 }
 
