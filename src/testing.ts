@@ -7,6 +7,7 @@ interface CustomGlobal {
 
 interface TestConfig {
   db: Db;
+  client: MongoClient;
   name: string;
   host: string;
   port: string;
@@ -19,6 +20,7 @@ interface TestConfig {
 let customGlobal: CustomGlobal = global as any;
 customGlobal.__mongoConnectorConfig = {
   db: null,
+  client: null,
   name: '',
   host: '127.0.0.1',
   port: '27017',
@@ -60,7 +62,8 @@ export async function getDb() {
   }
 
   let client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
-  glob.db = await client.db(glob.name)
+  glob.db = await client.db(glob.name);
+  glob.client = client;
 
   // to make sure we are working with a clear database, we drop it and reconnect
   await glob.db.dropDatabase();
@@ -225,10 +228,11 @@ export async function getConnector() {
 
 export async function stopDatabase() {
   let myDb = glob.db;
+  let client = glob.client;
   glob.db = null;
   if (myDb) {
     await myDb.dropDatabase();
-    await myDb.close(); 
+    await client.close(); 
   }
 }
 
