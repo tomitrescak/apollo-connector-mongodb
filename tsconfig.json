@@ -19,6 +19,8 @@
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node",
     "strictNullChecks": false,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
     "typeRoots": ["node_modules/@types"]
   },
   "exclude": [
