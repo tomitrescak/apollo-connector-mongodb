@@ -79,7 +79,7 @@ export default class MongoEntity<T> {
   public static DefaultCache: any;
   private _cache: "lru" | any;
 
-  get collection(): Collection<T> {
+  get collection() {
     if (!this._collection) {
       this._collection = this.connector.collection(this._collectionName);
     }
@@ -140,7 +140,7 @@ export default class MongoEntity<T> {
     };
   }
 
-  filter(object: Object, selector: Object): WithId<T> {
+  filter(object: Object, selector: Object) {
     let keys = Object.keys(selector);
     if (keys.length == 0) {
       throw new Error("You need to specify the selector!");
@@ -153,11 +153,11 @@ export default class MongoEntity<T> {
     return result;
   }
 
-  find(selector: Filter<T>, options?: FindOptions): FindCursor<WithId<T>> {
+  find(selector: Filter<T>, options?: FindOptions) {
     return this.collection.find(selector, options);
   }
 
-  findOne(selector: Filter<T>, options?: FindOptions): Promise<WithId<T>> {
+  findOne(selector: Filter<T>, options?: FindOptions) {
     return this.collection.findOne(selector, options);
   }
 
@@ -222,22 +222,22 @@ export default class MongoEntity<T> {
     return options;
   }
 
-  insertOne(document: OptionalId<T>): Promise<InsertOneResult> {
+  insertOne(document: OptionalId<T>) {
     this.clearInsertCaches(document);
     return this.collection.insertOne(document);
   }
 
-  insertMany(document: OptionalId<T>[]): Promise<InsertManyResult> {
+  insertMany(document: OptionalId<T>[]) {
     this.clearInsertCaches(document);
     return this.collection.insertMany(document);
   }
 
-  deleteOne(selector: Object, many = false): Promise<DeleteResult> {
+  deleteOne(selector: Object, many = false) {
     this.clearInsertCaches(selector);
     return this.collection.deleteOne(selector);
   }
 
-  deleteMany(selector: Object, many = false): Promise<DeleteResult> {
+  deleteMany(selector: Object, many = false) {
     this.clearInsertCaches(selector);
     return this.collection.deleteMany(selector);
   }
@@ -250,7 +250,7 @@ export default class MongoEntity<T> {
     selector: Filter<T>,
     update: UpdateFilter<T>,
     options?: UpdateOptions
-  ): Promise<UpdateResult> {
+  ) {
     this.clearUpdateCaches(selector);
     return this.collection.updateOne(selector, update, options);
   }
@@ -259,7 +259,7 @@ export default class MongoEntity<T> {
     selector: Filter<T>,
     update: UpdateFilter<T>,
     options?: UpdateOptions
-  ): Promise<Document | UpdateResult> {
+  ) {
     this.clearUpdateCaches(selector);
     return this.collection.updateMany(selector, update, options);
   }

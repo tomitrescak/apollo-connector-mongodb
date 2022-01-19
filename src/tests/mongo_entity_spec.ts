@@ -11,8 +11,8 @@ import {
 
 import Entity, { LruCacheWrapper } from "../mongo_entity";
 
-const host = process.env.MONGODB_HOST || "127.0.0.1";
-const port = process.env.MONGODB_PORT || 27017;
+// const host = process.env.MONGODB_HOST || "127.0.0.1";
+// const port = process.env.MONGODB_PORT || 27017;
 
 describe("entity", () => {
   it("contains connector and collection name", async () => {
