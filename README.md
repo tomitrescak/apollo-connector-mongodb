@@ -8,6 +8,11 @@ Connector for mongodb, focues on its use with GraphQL (Apollo) and facilitates:
 
 This module is built in ES6 with commonjs modules. **You have to use Node 6+ to use it.**
 
+# Breaking Changes
+
+- Using mongodb 4.0
+- find function using standard API
+
 # Quick Start
 
 ```js

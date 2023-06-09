@@ -5,9 +5,9 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "TS_NODE_FAST=true mocha --exit --report lcovonly src/tests/*.ts --compilers ts:ts-node/register --bail",
-    "coverage": "TS_NODE_FAST=true NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
-    "coveralls": "TS_NODE_FAST=true NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
+    "test": "mocha --require ts-node/register --extensions ts,tsx --exit --report lcovonly src/tests/*.ts --bail",
+    "coverage": "NODE_ENV=test nyc npm test && nyc report --reporter=lcov",
+    "coveralls": "NODE_ENV=test nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
   "typings": "./dist/index.d.ts",
   "keywords": [
@@ -27,10 +27,11 @@
   },
   "devDependencies": {
     "@types/mocha": "^2.2.48",
-    "@types/proxyquire": "^1.3.28",
-    "@types/sinon": "^4.3.0",
+    "mongodb-memory-server": "^8.12.2",
     "@types/mongodb": "^3.0.7",
     "@types/power-assert": "^1.4.29",
+    "@types/proxyquire": "^1.3.28",
+    "@types/sinon": "^4.3.0",
     "assert": "^1.4.1",
     "coveralls": "^3.0.0",
     "mocha": "^5.0.2",

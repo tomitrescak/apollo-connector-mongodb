@@ -1,5 +1,5 @@
 import * as proxyquire from "proxyquire";
-import * as assert from "power-assert";
+import * as assert from "assert";
 import * as sinon from "sinon";
 
 import { MongoClient } from "mongodb";

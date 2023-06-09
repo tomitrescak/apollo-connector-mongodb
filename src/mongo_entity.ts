@@ -20,6 +20,7 @@ import {
   OptionalUnlessRequiredId,
   UpdateOptions
 } from "mongodb";
+import { UpdateFilter } from "mongodb";
 
 export interface Options<K, V> {
   batch?: boolean;
@@ -72,7 +73,6 @@ interface ILoader<T> {
 
 export default class MongoEntity<T> {
   connector: MongoConnector;
-  random: typeof Random;
 
   private _collectionName: string;
   private _collection: Collection<T>;
@@ -83,7 +83,7 @@ export default class MongoEntity<T> {
   public static DefaultCache: any;
   private _cache: "lru" | any;
 
-  get collection(): Collection<T> {
+  get collection() {
     if (!this._collection) {
       this._collection = this.connector.collection(this._collectionName);
     }
@@ -144,7 +144,7 @@ export default class MongoEntity<T> {
     };
   }
 
-  filter(object: Object, selector: Object): T {
+  filter(object: Object, selector: Object) {
     let keys = Object.keys(selector);
     if (keys.length == 0) {
       throw new Error("You need to specify the selector!");
@@ -161,8 +161,7 @@ export default class MongoEntity<T> {
     selector: Filter<T>,
     projection?: Object,
     skip?: number,
-    limit?: number,
-    timeout?: number
+    limit?: number
   ): FindCursor<T> {
     return this.collection.find(selector, {
       projection,
@@ -260,12 +259,20 @@ export default class MongoEntity<T> {
     return this.deleteMany({}, true);
   }
 
-  updateOne(selector: Object, update: Object, options?: UpdateOptions) {
+  updateOne(
+    selector: Filter<T>,
+    update: UpdateFilter<T>,
+    options?: UpdateOptions
+  ) {
     this.clearUpdateCaches(selector);
     return this.collection.updateOne(selector, update, options);
   }
 
-  updateMany(selector: Object, update: Object, options?: UpdateOptions) {
+  updateMany(
+    selector: Filter<T>,
+    update: UpdateFilter<T>,
+    options?: UpdateOptions
+  ) {
     this.clearUpdateCaches(selector);
     return this.collection.updateMany(selector, update, options);
   }
@@ -274,7 +281,7 @@ export default class MongoEntity<T> {
     selectorFunction: (key: any) => Promise<T>,
     options?: Options<any, T | T[]>
   ) {
-    const opts = options;
+    const opts = options || {};
 
     // replace caches
     if (opts.cacheMap == "lru") {

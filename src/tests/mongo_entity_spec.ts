@@ -1,8 +1,7 @@
-import * as assert from "power-assert";
+import * as assert from "assert";
 import * as sinon from "sinon";
 import * as proxyquire from "proxyquire";
 
-import { MongoClient, Db } from "mongodb";
 import {
   config,
   getConnector,
@@ -11,10 +10,10 @@ import {
 } from "../testing";
 
 import Entity, { LruCacheWrapper } from "../mongo_entity";
-import * as lru from "lru-cache";
+import MongoEntity from "../mongo_entity";
 
-const host = process.env.MONGODB_HOST || "127.0.0.1";
-const port = process.env.MONGODB_PORT || 27017;
+// const host = process.env.MONGODB_HOST || "127.0.0.1";
+// const port = process.env.MONGODB_PORT || 27017;
 
 describe("entity", () => {
   it("contains connector and collection name", async () => {
@@ -43,7 +42,7 @@ describe("entity", () => {
 
   describe("find", () => {
     it("can find a multiple record", async () => {
-      await withEntity((entity) => {
+      await withEntity((entity: MongoEntity<any>) => {
         const skipStub = sinon.spy();
         const limitStub = sinon.spy();
 
@@ -61,13 +60,12 @@ describe("entity", () => {
         const limit = 2;
         const timeout = 1000;
 
-        entity.find(selector, fields, skip, limit, timeout);
+        const options = { projection: fields, skip, limit };
+        entity.find(selector, fields, skip, limit);
         skipStub.calledWithExactly(skip);
         res.limit.calledWithExactly(456);
 
-        assert(
-          find.calledWithExactly(selector, { projection: fields, skip, limit })
-        );
+        sinon.assert.calledWith(find, selector, options);
       });
     });
   });
@@ -119,7 +117,7 @@ describe("entity", () => {
         assert(find.calledTwice);
 
         // now test caching
-        find.reset();
+        find.resetHistory();
         result = await entity.findOneCachedById("1");
         result = await entity.findOneCachedById("1");
 
@@ -151,14 +149,14 @@ describe("entity", () => {
         assert(cacheSpy.calledWith(selector));
 
         // check update
-        findSpy.reset();
+        findSpy.resetHistory();
 
         foo = await entity.findOneCachedById("1");
         assert.deepEqual(foo, { _id: "1", file: "boo" });
         assert(findSpy.calledOnce);
 
         // check if the other has been called coorectly
-        findSpy.reset();
+        findSpy.resetHistory();
         bar = await entity.findOneCachedById("2");
         assert(findSpy.notCalled);
       }
@@ -418,28 +416,28 @@ describe("entity", () => {
         await entity.findOneCached(loader, "A");
 
         sinon.assert.calledTwice(spy);
-        spy.reset();
+        spy.resetHistory();
 
         await entity.updateOne({ _id: 1 }, { $set: { name: "D" } });
         const a = await entity.findOneCached(loader, "A");
 
         assert.equal(a, null);
         sinon.assert.calledOnce(spy);
-        spy.reset();
+        spy.resetHistory();
 
         // finding new element will need to query for it in DB
         await entity.findOneCached(loader, "C");
         await entity.findOneCached(loader, "A");
 
         sinon.assert.calledOnce(spy);
-        spy.reset();
+        spy.resetHistory();
 
         // finding new element pushed out oldest one form cache
         await entity.findOneCached(loader, "B");
         sinon.assert.calledOnce(spy);
 
         // test updates
-        spy.reset();
+        spy.resetHistory();
 
         // B should be out of the cache after update so it will need to be re-requested
         await entity.findOneCached(loader, "C");

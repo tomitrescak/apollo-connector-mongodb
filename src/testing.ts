@@ -1,5 +1,6 @@
-import { MongoClient, Db, Collection } from 'mongodb';
-import MongoEntity from './mongo_entity';
+import { MongoClient, Db, Collection } from "mongodb";
+import MongoEntity from "./mongo_entity";
+import { MongoMemoryServer } from "mongodb-memory-server";
 
 interface CustomGlobal {
   __mongoConnectorConfig: TestConfig;
@@ -21,13 +22,13 @@ let customGlobal: CustomGlobal = global as any;
 customGlobal.__mongoConnectorConfig = {
   db: null,
   client: null,
-  name: '',
-  host: '127.0.0.1',
-  port: '27017',
+  name: "",
+  host: "127.0.0.1",
+  port: "27017",
   initContext: null,
   testServer: null,
   verbose: false,
-  dbName: () => "tmp" + Math.floor(Math.random() * 10000)
+  dbName: () => "tmp" + Math.floor(Math.random() * 10000),
 };
 let glob = customGlobal.__mongoConnectorConfig;
 
@@ -41,34 +42,47 @@ export interface ITestingOptions {
   testDbName?: () => string;
 }
 
-export function config({mongoHost, testDbName, mongoPort, verbose, initContext: ic, testServer: ts}: ITestingOptions) {
+export function config({
+  mongoHost,
+  testDbName,
+  mongoPort,
+  verbose,
+  initContext: ic,
+  testServer: ts,
+}: ITestingOptions) {
   glob.host = mongoHost || glob.host;
   glob.port = mongoPort || glob.port;
   glob.initContext = ic || glob.initContext;
   glob.testServer = ts || glob.testServer;
   glob.verbose = verbose;
   glob.dbName = testDbName || glob.dbName;
-
 }
 
 export async function getDb() {
   if (glob.db) {
     return glob.db;
   }
+
+  // This will create an new instance of "MongoMemoryServer" and automatically start it
+  const mongod = await MongoMemoryServer.create();
+
+  const uri = mongod.getUri();
+
   glob.name = glob.dbName();
 
-  if (glob.verbose) {
-    console.log('New connection to ' + glob.name);
-  }
+  // if (glob.verbose) {
+  console.log("New connection to " + glob.name + " " + uri);
+  // }
 
-  let client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
+  // let client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
+  let client = await MongoClient.connect(uri);
   glob.db = await client.db(glob.name);
   glob.client = client;
 
   // to make sure we are working with a clear database, we drop it and reconnect
-  await glob.db.dropDatabase();
-  client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
-  glob.db = await client.db(glob.name);
+  // await glob.db.dropDatabase();
+  // client = await MongoClient.connect(`mongodb://${glob.host}:${glob.port}`);
+  // glob.db = await client.db(glob.name);
 
   (global as any).db = glob.db;
 
@@ -78,15 +92,17 @@ export async function getDb() {
 export interface TestOption<T> {
   data?: T[];
   name?: string;
-  type?: any,
+  type?: any;
   entity?: MongoEntity<T>;
 }
 export interface TestOptions {
   entities?: TestOption<any>[];
 }
 
-
-export async function withEntity(test: (...entity: any[]) => any, options?: TestOptions): Promise<any> {
+export async function withEntity(
+  test: (...entity: any[]) => any,
+  options?: TestOptions
+): Promise<any> {
   const connector: any = await getConnector();
 
   let entities: any[] = [];
@@ -96,7 +112,7 @@ export async function withEntity(test: (...entity: any[]) => any, options?: Test
       const option = options.entities[i];
       const name = option.name;
       const type = option.type ? option.type : MongoEntity;
-      
+
       let entity = new type(connector, name ? name : `test_${i}`);
       entities.push(entity);
 
@@ -108,7 +124,7 @@ export async function withEntity(test: (...entity: any[]) => any, options?: Test
       }
     }
   } else {
-    entities.push(new MongoEntity(connector, 'test'));
+    entities.push(new MongoEntity(connector, "test"));
   }
 
   // check for initial data
@@ -120,31 +136,45 @@ export async function withEntity(test: (...entity: any[]) => any, options?: Test
     throw ex;
   } finally {
     // clean up
-    await entities.forEach(e => e.deleteMany({}));
+    await entities.forEach((e) => e.deleteMany({}));
   }
 }
 
-export function itWithEntity(name: string, func: (...entity: any[]) => any, options?: TestOptions) {
-  it (name, async function() {
-    await withEntity(async (context) => { await func(context); }, options);
+export function itWithEntity(
+  name: string,
+  func: (...entity: any[]) => any,
+  options?: TestOptions
+) {
+  it(name, async function () {
+    await withEntity(async (context) => {
+      await func(context);
+    }, options);
   });
 }
 
 const fakeConnector = {
-  collection() { return {
-    deleteMany() {},
-    insert() {},
-    find() {},
-    findOne() {}
-  } }
-}
+  collection() {
+    return {
+      deleteMany() {},
+      insert() {},
+      find() {},
+      findOne() {},
+    };
+  },
+};
 
-export async function withContext(test: (context: any) => any, initContextFn?: (conn: any) => any, disconnected = false): Promise<any> {
+export async function withContext(
+  test: (context: any) => any,
+  initContextFn?: (conn: any) => any,
+  disconnected = false
+): Promise<any> {
   const connector: any = disconnected ? fakeConnector : await getConnector();
   glob.initContext = initContextFn || glob.initContext;
 
   if (!glob.initContext) {
-    throw new Error('No initContext provided, please pass as a parameter or use global config');
+    throw new Error(
+      "No initContext provided, please pass as a parameter or use global config"
+    );
   }
 
   const context = glob.initContext(connector);
@@ -164,9 +194,20 @@ export async function withContext(test: (context: any) => any, initContextFn?: (
   }
 }
 
-export function itWithContext(name: string, func: (context: any) => void, initContextFn?: (conn: any) => any, disconnected?: boolean) {
-  it (name, async function() {
-    await withContext(async (context) => { await func(context); }, initContextFn, disconnected);
+export function itWithContext(
+  name: string,
+  func: (context: any) => void,
+  initContextFn?: (conn: any) => any,
+  disconnected?: boolean
+) {
+  it(name, async function () {
+    await withContext(
+      async (context) => {
+        await func(context);
+      },
+      initContextFn,
+      disconnected
+    );
   });
 }
 
@@ -177,18 +218,22 @@ export interface ITestServer {
   stopTest(): any;
 }
 
-export async function withServer(test: (server: ITestServer) => any, server?: ITestServer): Promise<any> {
+export async function withServer(
+  test: (server: ITestServer) => any,
+  server?: ITestServer
+): Promise<any> {
   if (server) {
     // console.log('Using local server');
     glob.testServer = server;
-  } else { 
+  } else {
     // console.log('Using global server');
     server = glob.testServer;
   }
-  
 
   if (!server) {
-    throw new Error('No server provided, please pass as a parameter or use global config');
+    throw new Error(
+      "No server provided, please pass as a parameter or use global config"
+    );
   }
 
   if (!server.started) {
@@ -210,20 +255,25 @@ export async function withServer(test: (server: ITestServer) => any, server?: IT
   }
 }
 
-export function itWithServer(name: string, func: (context: any) => void, server?: ITestServer) {
-  it (name, async function() {
-    await withServer(async (context) => { await func(context); }, server);
+export function itWithServer(
+  name: string,
+  func: (context: any) => void,
+  server?: ITestServer
+) {
+  it(name, async function () {
+    await withServer(async (context) => {
+      await func(context);
+    }, server);
   });
 }
-
 
 export async function getConnector() {
   let myDb = await getDb();
   return {
     collection(name: string) {
-      return glob.db.collection(name);
-    }
-  }
+      return myDb.collection(name);
+    },
+  };
 }
 
 export async function stopDatabase() {
@@ -232,17 +282,14 @@ export async function stopDatabase() {
   glob.db = null;
   if (myDb) {
     await myDb.dropDatabase();
-    await client.close(); 
+    await client.close();
   }
 }
 
 export function stopServer() {
   if (!glob.testServer) {
-    console.error("No server to stop!")
+    console.error("No server to stop!");
   }
-    console.log('Stopping test server');
-    glob.testServer.stopTest();
-  
+  console.log("Stopping test server");
+  glob.testServer.stopTest();
 }
-
-
