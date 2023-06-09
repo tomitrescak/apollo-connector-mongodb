@@ -1,7 +1,10 @@
-import MongoConnector from './mongo_connector';
-import * as Random from 'meteor-random';
+import * as Random from "meteor-random";
 
-const DataLoader = require('dataloader');
+import MongoConnector from "./mongo_connector";
+
+import { LRUCache } from "lru-cache";
+
+const DataLoader = require("dataloader");
 
 export interface IDataLoader<S, T> {
   clear(id: string): void;
@@ -10,34 +13,52 @@ export interface IDataLoader<S, T> {
 }
 
 import {
-  Collection, FindOneOptions, Cursor, ReplaceOneOptions, WriteOpResult,
-  InsertOneWriteOpResult, InsertWriteOpResult, UpdateWriteOpResult, DeleteWriteOpResultObject
-} from 'mongodb';
+  Collection,
+  Filter,
+  FindCursor,
+  FindOptions,
+  OptionalUnlessRequiredId,
+  UpdateOptions
+} from "mongodb";
 
 export interface Options<K, V> {
   batch?: boolean;
   cache?: boolean;
   cacheKeyFn?: (key: any) => any;
-  cacheMap?: Map<K, Promise<V>> | 'lru'; // TODO: add TTL
+  cacheMap?: CacheWrapper<K, V> | "lru"; // TODO: add TTL
+  cacheTTLMs?: number;
+  cacheSize?: number;
   clearOnInsert?: boolean;
   clearOnUpdate?: boolean;
   selectorKeyFn?: (key: any) => any;
 }
 
-export class LruCacheWrapper<K, V> {
-  cache: any;
+interface CacheWrapper<K, V> {
+  clear();
+  get(key: K): V;
+  set(key: K, value: V);
+  delete(key: K);
+}
 
-  constructor(cacheSize = 500) {
-    const lru = require('lru-cache');
-    this.cache = lru({ max: cacheSize });
+export class LruCacheWrapper<K, V> implements CacheWrapper<K, V> {
+  cache: LRUCache<K, V>;
+
+  constructor(cacheSize = 500, ttl = 1000 * 5) {
+    this.cache = new LRUCache({ max: cacheSize, ttl: ttl || undefined }); // 5-minutes TTL
   }
 
-  clear() { this.cache.reset() }
-  get(key: K) { return this.cache.get(key) || undefined; }
-  set(key: K, value: V) { return this.cache.set(key, value); }
+  clear() {
+    this.cache.clear();
+  }
+  get(key: K) {
+    return this.cache.get(key) || undefined;
+  }
+  set(key: K, value: V) {
+    return this.cache.set(key, value);
+  }
   delete(key: K) {
     if (this.cache.has(key)) {
-      this.cache.del(key);
+      this.cache.delete(key);
       return true;
     }
     return false;
@@ -46,11 +67,10 @@ export class LruCacheWrapper<K, V> {
 
 interface ILoader<T> {
   selectorKeyFn(key: any): any;
-  dataLoader: IDataLoader<any, T[]>
+  dataLoader: IDataLoader<any, T[]>;
 }
 
 export default class MongoEntity<T> {
-
   connector: MongoConnector;
   random: typeof Random;
 
@@ -61,7 +81,7 @@ export default class MongoEntity<T> {
   private _insertLoaders: ILoader<T>[];
   private _updateLoaders: ILoader<T>[];
   public static DefaultCache: any;
-  private _cache: 'lru' | any;
+  private _cache: "lru" | any;
 
   get collection(): Collection<T> {
     if (!this._collection) {
@@ -80,7 +100,7 @@ export default class MongoEntity<T> {
 
   clearUpdateCaches(selector: any) {
     if (this._updateLoaders) {
-      this._updateLoaders.forEach(u => {
+      this._updateLoaders.forEach((u) => {
         const key = u.selectorKeyFn && u.selectorKeyFn(selector);
         if (key) {
           u.dataLoader.clear(key);
@@ -88,13 +108,12 @@ export default class MongoEntity<T> {
           u.dataLoader.clearAll();
         }
       });
-
     }
   }
 
   clearInsertCaches(selector: any) {
     if (this._insertLoaders) {
-      this._insertLoaders.forEach(u => {
+      this._insertLoaders.forEach((u) => {
         const key = u.selectorKeyFn && u.selectorKeyFn(selector);
         if (key) {
           u.dataLoader.clear(key);
@@ -105,25 +124,30 @@ export default class MongoEntity<T> {
     }
   }
 
-  assignFilter(object: Object, selector: Object, result: Object, include: 0 | 1) {
+  assignFilter(
+    object: Object,
+    selector: Object,
+    result: Object,
+    include: 0 | 1
+  ) {
     return (k: string) => {
       if (selector[k] != include) {
-        throw new Error('You cannot combine include and exclude!');
+        throw new Error("You cannot combine include and exclude!");
       }
       if (include) {
         if (object[k] !== undefined) {
           result[k] = object[k];
         }
       } else {
-        delete (result[k]);
+        delete result[k];
       }
-    }
+    };
   }
 
   filter(object: Object, selector: Object): T {
     let keys = Object.keys(selector);
     if (keys.length == 0) {
-      throw new Error('You need to specify the selector!');
+      throw new Error("You need to specify the selector!");
     }
 
     let include = selector[keys[0]];
@@ -133,22 +157,29 @@ export default class MongoEntity<T> {
     return result;
   }
 
-  find(selector: Object, fields?: Object, skip?: number, limit?: number, timeout?: number) {
-    if (skip && limit) {
-      return this.collection.find(selector, fields).skip(skip).limit(limit);
-    } else if (skip) {
-      return this.collection.find(selector, fields).skip(skip);
-    } else if (limit) {
-      return this.collection.find(selector, fields).limit(limit);
-    }
-    return this.collection.find(selector, fields);
+  find(
+    selector: Filter<T>,
+    projection?: Object,
+    skip?: number,
+    limit?: number,
+    timeout?: number
+  ): FindCursor<T> {
+    return this.collection.find(selector, {
+      projection,
+      skip,
+      limit
+    }) as FindCursor<T>;
   }
 
-  findOne(selector: Object, options?: FindOneOptions): Promise<T> {
-    return this.collection.findOne(selector, options);
+  findOne(selector: Object, options?: FindOptions): Promise<T> {
+    return this.collection.findOne(selector, options) as Promise<T>;
   }
 
-  async findOneCached(loader: IDataLoader<string, T>, key: string, selector?: Object): Promise<T> {
+  async findOneCached(
+    loader: IDataLoader<string, T>,
+    key: string,
+    selector?: Object
+  ): Promise<T> {
     const result = await loader.load(key);
     if (result && selector) {
       // do not cache null values, always try to reload
@@ -161,16 +192,20 @@ export default class MongoEntity<T> {
   async findOneCachedById(id: string, selector?: Object): Promise<T> {
     if (!this._singleLoader) {
       this._singleLoader = this.createLoader((loadId) => {
-        return this.collection.findOne({ _id: loadId });
+        return this.findOne({ _id: loadId });
       }, this.addCacheToOptions({ clearOnUpdate: true, clearOnInsert: true, selectorKeyFn: (a: any) => a._id }));
     }
     return this.findOneCached(this._singleLoader, id, selector);
   }
 
-  async findManyCached(loader: IDataLoader<string, T[]>, key: string, selector?: Object): Promise<T[]> {
+  async findManyCached(
+    loader: IDataLoader<string, T[]>,
+    key: string,
+    selector?: Object
+  ): Promise<T[]> {
     if (selector) {
       const result = await loader.load(key);
-      return result.map(r => this.filter(r, selector));
+      return result.map((r) => this.filter(r, selector));
     } else {
       return loader.load(key);
     }
@@ -180,9 +215,14 @@ export default class MongoEntity<T> {
     if (!this._multiLoader) {
       this._multiLoader = this.createLoader(
         () => this.collection.find().toArray() as any,
-        this.addCacheToOptions({ clearOnInsert: true, clearOnUpdate: true, selectorKeyFn: (a: any): any => null }));
+        this.addCacheToOptions({
+          clearOnInsert: true,
+          clearOnUpdate: true,
+          selectorKeyFn: (a: any): any => null
+        })
+      );
     }
-    return this.findManyCached(this._multiLoader, 'ALL', selector);
+    return this.findManyCached(this._multiLoader, "ALL", selector);
   }
 
   addCacheToOptions(options: any) {
@@ -191,27 +231,27 @@ export default class MongoEntity<T> {
     } else if (this._cache) {
       options.cacheMap = this._cache;
     } else {
-      options.cacheMap = 'lru';
+      options.cacheMap = "lru";
     }
     return options;
   }
 
-  insertOne(document: T): Promise<InsertOneWriteOpResult> {
+  insertOne(document: OptionalUnlessRequiredId<T>) {
     this.clearInsertCaches(document);
     return this.collection.insertOne(document);
   }
 
-  insertMany(document: T[]): Promise<InsertWriteOpResult> {
+  insertMany(document: OptionalUnlessRequiredId<T>[]) {
     this.clearInsertCaches(document);
     return this.collection.insertMany(document);
   }
 
-  deleteOne(selector: Object, many = false): Promise<DeleteWriteOpResultObject> {
+  deleteOne(selector: Object, many = false) {
     this.clearInsertCaches(selector);
     return this.collection.deleteOne(selector);
   }
 
-  deleteMany(selector: Object, many = false): Promise<DeleteWriteOpResultObject> {
+  deleteMany(selector: Object, many = false) {
     this.clearInsertCaches(selector);
     return this.collection.deleteMany(selector);
   }
@@ -220,22 +260,28 @@ export default class MongoEntity<T> {
     return this.deleteMany({}, true);
   }
 
-  updateOne(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
+  updateOne(selector: Object, update: Object, options?: UpdateOptions) {
     this.clearUpdateCaches(selector);
     return this.collection.updateOne(selector, update, options);
   }
 
-  updateMany(selector: Object, update: Object, options?: ReplaceOneOptions): Promise<UpdateWriteOpResult> {
+  updateMany(selector: Object, update: Object, options?: UpdateOptions) {
     this.clearUpdateCaches(selector);
     return this.collection.updateMany(selector, update, options);
   }
 
-  createLoader(selectorFunction: (key: any) => Promise<T>, options?: Options<any, T | T[]>) {
-    const opts: any = options;
+  createLoader(
+    selectorFunction: (key: any) => Promise<T>,
+    options?: Options<any, T | T[]>
+  ) {
+    const opts = options;
 
     // replace caches
-    if (opts.cacheMap == 'lru') {
-      opts.cacheMap = new LruCacheWrapper<any, T>();
+    if (opts.cacheMap == "lru") {
+      opts.cacheMap = new LruCacheWrapper<any, T>(
+        opts.cacheSize,
+        opts.cacheTTLMs
+      );
     }
 
     const loader = new DataLoader((keys: any[]) => {
@@ -258,7 +304,9 @@ export default class MongoEntity<T> {
           this._updateLoaders = [];
         }
         if (!options.selectorKeyFn) {
-          throw new Error('You need to provide cache key function to determine when cache needs to be updated')
+          throw new Error(
+            "You need to provide cache key function to determine when cache needs to be updated"
+          );
         }
         this._updateLoaders.push({
           dataLoader: loader,

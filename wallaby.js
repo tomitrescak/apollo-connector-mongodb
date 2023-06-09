@@ -1,32 +1,26 @@
-const transform = require('import-to-commonjs').default;
-
-module.exports = function (w) {
+module.exports = function(w) {
   return {
-    files: [
-      'src/*.ts'
-    ],
-    tests: [
-      'src/tests/*.ts'
-    ],
+    files: ["src/*.ts"],
+    tests: ["src/tests/*.ts"],
     compilers: {
-      "**/*.ts*": w.compilers.typeScript({module: "commonjs", target: "es5"})
+      "**/*.ts*": w.compilers.typeScript({ module: "commonjs", target: "es5" })
     },
     env: {
       type: "node"
     },
     testFramework: "mocha",
     // preprocessors: {
-    //   "**/*.js*": file => { 
-    //     return transform(file.content); 
+    //   "**/*.js*": file => {
+    //     return transform(file.content);
     //   }
     // },
     workers: {
-       initial: 1,
-       regular: 1
-     },
+      initial: 1,
+      regular: 1
+    },
     /* parallelism may break some tests due to db consistency */
     // workers: {
-    //   initial: 1, 
+    //   initial: 1,
     //   regular: 1,
     //   recycle: true
     // },
@@ -35,21 +29,19 @@ module.exports = function (w) {
     },
     setup() {
       // configure sinon
-      var sinon = require('sinon');
+      var sinon = require("sinon");
       // var sinonTest = require('sinon-test');
 
       // sinon.test = sinonTest.configureTest(sinon);
       // sinon.testCase = sinonTest.configureTestCase(sinon);
     },
-    teardown: function (wallaby) {
-      
-    }
+    teardown: function(wallaby) {}
     // preprocessors: {
     //   "**/*.js*": file => require("babel-core").transform(file.content.replace('(\'assert\')', '(\'power-assert\')'), {
     //     sourceMap: true,
     //     presets: ["es2015", "stage-2", "babel-preset-power-assert"]
     //   })
-    // }, 
+    // },
     // setup: function() {
 
     //   // setup power asssert

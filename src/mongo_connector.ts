@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection } from 'mongodb';
+import { MongoClient, Db, Collection } from "mongodb";
 
 export class MongoConnector {
   db: Db;
@@ -15,7 +15,9 @@ export class MongoConnector {
         started();
       }
     } catch (ex) {
-      console.log(`Connection Error to ${this.url} / ${this.dbName}: ${ex.message}`);
+      console.log(
+        `Connection Error to ${this.url} / ${this.dbName}: ${ex.message}`
+      );
       throw new Error(`Connection Error to ${this.url}/${this.dbName}`);
     }
   }
@@ -25,7 +27,7 @@ export class MongoConnector {
   }
 
   async dispose() {
-    console.log(this.client.close)
+    // console.log(this.client.close)
     await this.db.dropDatabase();
     await this.client.close();
   }
